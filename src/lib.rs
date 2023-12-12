@@ -1,2 +1,2 @@
-mod d01_trebuchet;
+pub mod d01_trebuchet;
 mod utils;
