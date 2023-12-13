@@ -1,4 +1,4 @@
-fn parse_card(line: &str) -> (usize, Vec<u64>, Vec<u64>) {
+fn parse_card(line: &str) -> (usize, Vec<u32>, Vec<u32>) {
     let (id, all_numbers) = line.split_once(':').unwrap();
     let id = id
         .split_whitespace()
@@ -17,32 +17,52 @@ fn parse_card(line: &str) -> (usize, Vec<u64>, Vec<u64>) {
     (id, winning, actual)
 }
 
+fn points(mut winning: Vec<u32>, mut actual: Vec<u32>) -> u32 {
+    winning.sort();
+    actual.sort();
+
+    let mut cursor = 0;
+    let mut total = 0;
+
+    for number in winning {
+        if cursor >= actual.len() {
+            break;
+        }
+
+        if let Ok(found) = actual[cursor..].binary_search(&number) {
+            cursor = found + 1;
+            total += 1;
+        }
+    }
+
+    total
+}
+
 pub fn total_points(filename: &str) -> u64 {
     crate::utils::read_lines(filename)
         .map(|line| parse_card(&line))
-        .map(|(_, mut winning, mut actual)| {
-            winning.sort();
-            actual.sort();
-
-            let mut cursor = 0;
-            let mut total = 0;
-
-            for number in winning {
-                if cursor >= actual.len() {
-                    break;
-                }
-
-                if let Ok(found) = actual[cursor..].binary_search(&number) {
-                    cursor = found + 1;
-                    total += 1;
-                }
-            }
-
-            total
-        })
-        .filter(|&total| total != 0)
+        .map(|(_, winning, actual)| points(winning, actual))
+        .filter(|&total| total > 0)
         .map(|total| 2u64.pow(total - 1))
         .sum()
+}
+
+pub fn total_scratchcards(filename: &str) -> usize {
+    let mut counts: Vec<_> = crate::utils::read_lines(filename)
+        .map(|line| parse_card(&line))
+        .map(|(_, winning, actual)| (1, points(winning, actual)))
+        .collect();
+
+    for i in 0..counts.len() {
+        let (count, points) = counts[i];
+        counts
+            .iter_mut()
+            .skip(i + 1)
+            .take(points as usize)
+            .for_each(|c| c.0 += count);
+    }
+
+    counts.into_iter().map(|(count, _)| count).sum()
 }
 
 #[cfg(test)]
@@ -75,6 +95,18 @@ mod d04_tests {
     #[test]
     fn p1_task_test() {
         let res = total_points(TASK);
+        println!("{res}");
+    }
+
+    #[test]
+    fn p2_example_test() {
+        let res = total_scratchcards(EXAMPLE_01);
+        assert_eq!(res, 30);
+    }
+
+    #[test]
+    fn p2_task_test() {
+        let res = total_scratchcards(TASK);
         println!("{res}");
     }
 }
