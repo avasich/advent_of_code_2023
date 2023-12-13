@@ -1,11 +1,9 @@
-use advent_of_code_2023::{d06_wait_for_it, utils::Solution};
-
 fn main() {
     run_day(6);
 }
 
 fn run_day(day_number: usize) {
-    use advent_of_code_2023::*;
+    use advent_of_code_2023::{utils::Solution, *};
 
     let d01 = d01_trebuchet::solution();
     let d02 = d02_cube_conundrum::solution();

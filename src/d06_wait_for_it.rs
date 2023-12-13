@@ -1,6 +1,6 @@
 use crate::utils::{Day, Task};
 
-fn parse_numbers(s: String) -> Vec<i32> {
+fn parse_numbers(s: String) -> Vec<i64> {
     s.split_once(':')
         .unwrap()
         .1
@@ -9,18 +9,18 @@ fn parse_numbers(s: String) -> Vec<i32> {
         .collect()
 }
 
-fn ways_to_win(time: i32, dist: i32) -> i32 {
+fn ways_to_win(time: i64, dist: i64) -> i64 {
     match time * time - 4 * dist {
         0 if time % 2 == 0 => 1,
         0 if time % 2 != 0 => 0,
         d if d < 0 => 0,
         d => {
-            let d_sqrt = (d as f32).sqrt();
+            let d_sqrt = (d as f64).sqrt();
 
-            let t1 = (time as f32 - d_sqrt) / 2.0;
-            let t1 = t1.ceil() as i32;
-            let t2 = (time as f32 + d_sqrt) / 2.0;
-            let t2 = t2.floor() as i32;
+            let t1 = (time as f64 - d_sqrt) / 2.0;
+            let t1 = t1.ceil() as i64;
+            let t2 = (time as f64 + d_sqrt) / 2.0;
+            let t2 = t2.floor() as i64;
 
             let is_exact = t1 * t1 - time * t1 + dist == 0;
             if is_exact {
@@ -32,7 +32,18 @@ fn ways_to_win(time: i32, dist: i32) -> i32 {
     }
 }
 
-fn product_of_ways_to_win(filename: &str) -> i32 {
+fn parse_number(line: String) -> i64 {
+    let s: String = line
+        .split_once(':')
+        .unwrap()
+        .1
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect();
+    s.parse().unwrap()
+}
+
+fn product_of_ways_to_win(filename: &str) -> i64 {
     let mut lines = crate::utils::read_lines(filename);
     let times = parse_numbers(lines.next().unwrap());
     let dists = parse_numbers(lines.next().unwrap());
@@ -43,11 +54,12 @@ fn product_of_ways_to_win(filename: &str) -> i32 {
         .product()
 }
 
-fn bar(filename: &str) -> i32 {
-    1
+fn ways_to_win_task(filename: &str) -> i64 {
+    let mut numbers = crate::utils::read_lines(filename).map(parse_number);
+    ways_to_win(numbers.next().unwrap(), numbers.next().unwrap())
 }
 
-pub fn solution() -> Day<i32, i32> {
+pub fn solution() -> Day<i64, i64> {
     Day {
         part_1: Task {
             example: "./inputs/day_06/example_01.txt",
@@ -57,7 +69,7 @@ pub fn solution() -> Day<i32, i32> {
         part_2: Task {
             example: "./inputs/day_06/example_01.txt",
             task: "./inputs/day_06/task.txt",
-            run: bar,
+            run: ways_to_win_task,
         },
     }
 }
@@ -77,5 +89,11 @@ mod d06_tests {
     fn p1_example_test() {
         let res = solution().part_1.run_example();
         assert_eq!(res, 288);
+    }
+
+    #[test]
+    fn p2_example_test() {
+        let res = solution().part_2.run_example();
+        assert_eq!(res, 71503);
     }
 }
