@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, ops::Range, str::FromStr};
+use std::{cmp::Ordering, str::FromStr};
 
 use crate::utils::{Day, Task};
 
@@ -20,26 +20,12 @@ impl MappingRange {
         Self { dst, src, len }
     }
 
-    fn src_range(&self) -> Range<u64> {
-        self.src..(self.src + self.len)
-    }
-
-    fn dst_range(&self) -> Range<u64> {
-        self.dst..(self.dst + self.len)
-    }
-
-    fn map_value(&self, val: u64) -> Option<u64> {
-        self.src_range()
-            .contains(&val)
-            .then(|| self.map_value_unchecked(val))
-    }
-
     fn map_value_unchecked(&self, val: u64) -> u64 {
         self.dst + val - self.src
     }
 }
 
-struct Mapping {
+pub struct Mapping {
     ranges: Vec<MappingRange>,
 }
 
@@ -57,7 +43,7 @@ impl Mapping {
             .map_or(val, |i| self.ranges[i].map_value_unchecked(val))
     }
 
-    fn collapse_mappings(&self, other: &Self) -> Mapping {
+    pub fn collapse_mappings(&self, other: &Self) -> Mapping {
         let mut ranges = vec![];
 
         for range in &self.ranges {
