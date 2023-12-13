@@ -1,3 +1,5 @@
+use crate::utils::{Day, Task};
+
 fn first_integer_boundaries(line: &[char], offset: usize) -> Option<(usize, usize)> {
     let mut chars = line
         .iter()
@@ -116,16 +118,30 @@ pub fn gear_ratio(filename: &str) -> u64 {
     sum
 }
 
+pub fn solution() -> Day<u64, u64> {
+    Day {
+        part_1: Task {
+            example: "./inputs/day_03/example_01.txt",
+            task: "./inputs/day_03/task.txt",
+            run: sum_part_numbers,
+        },
+        part_2: Task {
+            example: "./inputs/day_03/example_01.txt",
+            task: "./inputs/day_03/task.txt",
+            run: gear_ratio,
+        },
+    }
+}
+
 #[cfg(test)]
 mod d03_tests {
     use super::*;
 
-    static EXAMPLE_01: &str = "./inputs/day_03/example_01.txt";
-    static TASK: &str = "./inputs/day_03/task.txt";
-
     #[test]
     fn read_integer_test() {
-        let lines: Vec<Vec<_>> = crate::utils::read_lines(EXAMPLE_01)
+        let filename = solution().part_1.example;
+
+        let lines: Vec<Vec<_>> = crate::utils::read_lines(filename)
             .map(|line| line.chars().collect())
             .collect();
 
@@ -148,7 +164,9 @@ mod d03_tests {
 
     #[test]
     fn integer_around_test() {
-        let lines: Vec<Vec<_>> = crate::utils::read_lines(EXAMPLE_01)
+        let filename = solution().part_1.example;
+
+        let lines: Vec<Vec<_>> = crate::utils::read_lines(filename)
             .map(|line| line.chars().collect())
             .collect();
 
@@ -164,25 +182,13 @@ mod d03_tests {
 
     #[test]
     fn p1_example_test() {
-        let res = sum_part_numbers(EXAMPLE_01);
+        let res = solution().part_1.run_example();
         assert_eq!(res, 4361);
     }
 
     #[test]
-    fn p1_task_test() {
-        let res = sum_part_numbers(TASK);
-        println!("{res}");
-    }
-
-    #[test]
     fn p2_example_test() {
-        let res = gear_ratio(EXAMPLE_01);
+        let res = solution().part_2.run_example();
         assert_eq!(res, 467835);
-    }
-
-    #[test]
-    fn p2_task_test() {
-        let res = gear_ratio(TASK);
-        println!("{res}");
     }
 }

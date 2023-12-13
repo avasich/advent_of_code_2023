@@ -1,3 +1,5 @@
+use crate::utils::{Day, Solution, Task};
+
 pub fn p1_calibration_total(filename: &str) -> u32 {
     crate::utils::read_lines(filename)
         .map(|line| {
@@ -57,35 +59,34 @@ pub fn p2_calibration_total(filename: &str) -> u32 {
         .sum()
 }
 
+pub fn solution() -> Day<u32, u32> {
+    Day {
+        part_1: Task {
+            example: "./inputs/day_01/example_01.txt",
+            task: "./inputs/day_01/task.txt",
+            run: p1_calibration_total,
+        },
+        part_2: Task {
+            example: "./inputs/day_01/example_01.txt",
+            task: "./inputs/day_01/task.txt",
+            run: p2_calibration_total,
+        },
+    }
+}
+
 #[cfg(test)]
 mod d01_tests {
     use super::*;
 
-    static EXAMPLE_01: &str = "./inputs/day_01/example_01.txt";
-    static EXAMPLE_02: &str = "./inputs/day_01/example_02.txt";
-    static TASK: &str = "./inputs/day_01/task.txt";
-
     #[test]
     fn p1_example_test() {
-        let res = p1_calibration_total(EXAMPLE_01);
+        let res = solution().part_1.run_example();
         assert_eq!(res, 142);
     }
 
     #[test]
-    fn p1_task_test() {
-        let res = p1_calibration_total(TASK);
-        println!("{res}");
-    }
-
-    #[test]
     fn p2_example_test() {
-        let res = p2_calibration_total(EXAMPLE_02);
+        let res = solution().part_2.run_example();
         assert_eq!(res, 281);
-    }
-
-    #[test]
-    fn p2_task_test() {
-        let res = p2_calibration_total(TASK);
-        println!("{res}");
     }
 }

@@ -1,3 +1,5 @@
+use crate::utils::{Day, Task};
+
 fn parse_card(line: &str) -> (usize, Vec<u32>, Vec<u32>) {
     let (id, all_numbers) = line.split_once(':').unwrap();
     let id = id
@@ -65,15 +67,30 @@ pub fn total_scratchcards(filename: &str) -> usize {
     counts.into_iter().map(|(count, _)| count).sum()
 }
 
+pub fn solution() -> Day<u64, usize> {
+    Day {
+        part_1: Task {
+            example: "./inputs/day_04/example_01.txt",
+            task: "./inputs/day_04/task.txt",
+            run: total_points,
+        },
+        part_2: Task {
+            example: "./inputs/day_04/example_01.txt",
+            task: "./inputs/day_04/task.txt",
+            run: total_scratchcards,
+        },
+    }
+}
+
 #[cfg(test)]
 mod d04_tests {
     use super::*;
-    static EXAMPLE_01: &str = "./inputs/day_04/example_01.txt";
-    static TASK: &str = "./inputs/day_04/task.txt";
 
     #[test]
     fn parse_card_test() {
-        let lines: Vec<_> = crate::utils::read_lines(EXAMPLE_01).collect();
+        let filename = solution().part_1.example;
+
+        let lines: Vec<_> = crate::utils::read_lines(filename).collect();
 
         let card1 = parse_card(&lines[0]);
         assert_eq!(card1.0, 1);
@@ -88,25 +105,13 @@ mod d04_tests {
 
     #[test]
     fn p1_example_test() {
-        let res = total_points(EXAMPLE_01);
+        let res = solution().part_1.run_example();
         assert_eq!(res, 13);
     }
 
     #[test]
-    fn p1_task_test() {
-        let res = total_points(TASK);
-        println!("{res}");
-    }
-
-    #[test]
     fn p2_example_test() {
-        let res = total_scratchcards(EXAMPLE_01);
+        let res = solution().part_2.run_example();
         assert_eq!(res, 30);
-    }
-
-    #[test]
-    fn p2_task_test() {
-        let res = total_scratchcards(TASK);
-        println!("{res}");
     }
 }

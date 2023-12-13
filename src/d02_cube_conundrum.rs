@@ -1,3 +1,5 @@
+use crate::utils::{Day, Task};
+
 fn parse_game_line(line: &str) -> (usize, usize, usize, usize) {
     let (game_id, attempts) = line.split_once(':').unwrap();
     let game_id = game_id.split_once(' ').unwrap().1.parse().unwrap();
@@ -32,34 +34,38 @@ pub fn power_of_sets(filename: &str) -> usize {
         .sum()
 }
 
+pub fn solution() -> Day<usize, usize> {
+    fn part_1(filename: &str) -> usize {
+        possible_games_sum(filename, (12, 13, 14))
+    }
+
+    Day {
+        part_1: Task {
+            example: "./inputs/day_02/example_01.txt",
+            task: "./inputs/day_02/task.txt",
+            run: part_1,
+        },
+        part_2: Task {
+            example: "./inputs/day_02/example_01.txt",
+            task: "./inputs/day_02/task.txt",
+            run: power_of_sets,
+        },
+    }
+}
+
 #[cfg(test)]
 mod d02_tests {
     use super::*;
 
-    static EXAMPLE_01: &str = "./inputs/day_02/example_01.txt";
-    static TASK: &str = "./inputs/day_02/task.txt";
-
     #[test]
     fn p1_example_test() {
-        let res = possible_games_sum(EXAMPLE_01, (12, 13, 14));
+        let res = solution().part_1.run_example();
         assert_eq!(res, 8);
     }
 
     #[test]
-    fn p1_task_test() {
-        let res = possible_games_sum(TASK, (12, 13, 14));
-        println!("{res}");
-    }
-
-    #[test]
     fn p2_example_test() {
-        let res = power_of_sets(EXAMPLE_01);
+        let res = solution().part_2.run_example();
         assert_eq!(res, 2286);
-    }
-
-    #[test]
-    fn p2_task_test() {
-        let res = power_of_sets(TASK);
-        println!("{res}");
     }
 }
