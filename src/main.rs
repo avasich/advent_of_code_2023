@@ -1,7 +1,7 @@
 use advent_of_code_2023::utils::Solution;
 
 fn main() {
-    run_day(1);
+    run_day(5);
 }
 
 fn run_day(day_number: usize) {

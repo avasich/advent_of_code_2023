@@ -1,6 +1,6 @@
-use std::{cmp::Ordering, collections::BTreeSet, ops::Range, str::FromStr};
+use std::{cmp::Ordering, ops::Range, str::FromStr};
 
-use crate::utils::{Day, Solution, Task};
+use crate::utils::{Day, Task};
 
 fn parse_numbers(line: &str) -> Vec<u64> {
     line.split_whitespace()
@@ -9,13 +9,13 @@ fn parse_numbers(line: &str) -> Vec<u64> {
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
-struct Mapping {
+struct MappingRange {
     src: u64,
     dst: u64,
     len: u64,
 }
 
-impl Mapping {
+impl MappingRange {
     fn new(dst: u64, src: u64, len: u64) -> Self {
         Self { dst, src, len }
     }
@@ -37,60 +37,111 @@ impl Mapping {
     fn map_value_unchecked(&self, val: u64) -> u64 {
         self.dst + val - self.src
     }
+}
 
-    fn map_value_many(val: u64, mappings: &[Mapping]) -> u64 {
-        mappings
-            .binary_search_by(|m| match val {
-                _ if val < m.src => Ordering::Greater,
-                _ if m.src + m.len <= val => Ordering::Less,
-                _ => Ordering::Equal,
-            })
-            .map_or(val, |i| mappings[i].map_value_unchecked(val))
+struct Mapping {
+    ranges: Vec<MappingRange>,
+}
+
+impl Mapping {
+    fn binary_search_range(&self, val: u64) -> Result<usize, usize> {
+        self.ranges.binary_search_by(|m| match val {
+            _ if val < m.src => Ordering::Greater,
+            _ if m.src + m.len <= val => Ordering::Less,
+            _ => Ordering::Equal,
+        })
     }
 
-    fn chain_mappings(
-        mut dst_map: BTreeSet<Mapping>,
-        mut src_map: BTreeSet<Mapping>,
-    ) -> BTreeSet<Mapping> {
-        let res = BTreeSet::new();
-        res
+    fn map_value(&self, val: u64) -> u64 {
+        self.binary_search_range(val)
+            .map_or(val, |i| self.ranges[i].map_value_unchecked(val))
+    }
+
+    fn collapse_mappings(&self, other: &Self) -> Mapping {
+        let mut ranges = vec![];
+
+        for range in &self.ranges {
+            let MappingRange {
+                mut src,
+                mut dst,
+                mut len,
+            } = *range;
+            let mut left = other.binary_search_range(dst);
+            let right = other.binary_search_range(dst + len - 1);
+
+            loop {
+                if left == right {
+                    if left.is_ok() {
+                        let containing_range = other.ranges[left.unwrap()];
+                        let offset = dst - containing_range.src;
+                        ranges.push(MappingRange::new(containing_range.dst + offset, src, len));
+                    } else {
+                        ranges.push(MappingRange::new(dst, src, len));
+                    }
+                    break;
+                }
+
+                match left {
+                    Ok(i) => {
+                        let containing_range = other.ranges[i];
+                        let offset = dst - containing_range.src;
+
+                        let new_len = containing_range.len - offset;
+                        ranges.push(MappingRange::new(
+                            containing_range.dst + offset,
+                            src,
+                            new_len,
+                        ));
+                        dst += new_len;
+                        src += new_len;
+                        len -= new_len;
+                        left = if i + 1 < other.ranges.len() && other.ranges[i + 1].src == dst {
+                            Ok(i + 1)
+                        } else {
+                            Err(i)
+                        }
+                    }
+                    Err(i) => {
+                        let next_range = other.ranges[i];
+                        let new_len = next_range.src - dst;
+                        ranges.push(MappingRange::new(dst, src, new_len));
+                        dst += new_len;
+                        src += new_len;
+                        len -= new_len;
+                        left = Ok(i);
+                    }
+                }
+            }
+        }
+
+        ranges.sort();
+
+        Mapping { ranges }
     }
 
     /*
-    tth:
-        1  0 69 : [ 0, 68] => [1, 69]
-        0 69  1 : [69, 69] => [0,  0]
+       1..................................100
+          10....20  30......50      80..........120
+       1-9 10-19 20-29 30-49 50-79 80-99
 
-    htl:
-        60 56 37 : [56, 92] => [60, 96]
-        56 93  4 : [93, 96] => [56, 59]
-
-    tth:
-        [1, 69] A [56, 92] = [56, 69], rem tth [1, 55], rem htl [70, 92]
-        [0, 68] = [0, 54] + [55, 68]
-
-        [0, 54] => [1, 55]
-        [55, 68] => [56, 69] => [60, 73]
-        [69, 69] => [0, 0]
-        [70, 92] => [74, 96]
-        [93, 96] => [56, 59]
-
-     */
+       10..................................100
+       10....20  30......50      80.............120
+    */
 }
 
-impl PartialOrd for Mapping {
+impl PartialOrd for MappingRange {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Mapping {
+impl Ord for MappingRange {
     fn cmp(&self, other: &Self) -> Ordering {
         self.src.cmp(&other.src)
     }
 }
 
-impl FromStr for Mapping {
+impl FromStr for MappingRange {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -106,7 +157,7 @@ impl FromStr for Mapping {
     }
 }
 
-fn parse_file(filename: &str) -> (Vec<u64>, Vec<Vec<Mapping>>) {
+fn parse_file(filename: &str) -> (Vec<u64>, Vec<Mapping>) {
     let mut lines = crate::utils::read_lines(filename);
     let seeds = lines
         .next()
@@ -116,12 +167,12 @@ fn parse_file(filename: &str) -> (Vec<u64>, Vec<Vec<Mapping>>) {
     lines.next();
 
     let mut tmp = vec![];
-    let mut maps = vec![];
+    let mut mappings = vec![];
 
     for line in lines {
         if line.is_empty() {
             tmp.sort();
-            maps.push(tmp);
+            mappings.push(Mapping { ranges: tmp });
             tmp = vec![];
             continue;
         }
@@ -132,27 +183,50 @@ fn parse_file(filename: &str) -> (Vec<u64>, Vec<Vec<Mapping>>) {
     }
 
     tmp.sort();
-    maps.push(tmp);
+    mappings.push(Mapping { ranges: tmp });
 
-    (seeds, maps)
+    (seeds, mappings)
 }
 
 pub fn lowest_location(filename: &str) -> u64 {
-    let (seeds, maps) = parse_file(filename);
+    let (seeds, mappings) = parse_file(filename);
     seeds
         .into_iter()
-        .map(|seed| {
-            maps.iter()
-                .map(Vec::as_slice)
-                .fold(seed, Mapping::map_value_many)
-        })
+        .map(|seed| mappings.iter().fold(seed, |val, m| m.map_value(val)))
         .min()
         .unwrap()
 }
 
 pub fn lowest_location_range(filename: &str) -> u64 {
-    let (seeds, maps) = parse_file(filename);
-    1
+    let (seeds, mappings) = parse_file(filename);
+    let mut min = u64::MAX;
+
+    for seed_range in seeds.chunks(2) {
+        let start = seed_range[0];
+        let length = seed_range[1];
+
+        let m = (start..(start + length))
+            .map(|seed| mappings.iter().fold(seed, |val, m| m.map_value(val)))
+            .min()
+            .unwrap();
+        min = min.min(m);
+    }
+    min
+    // let (seeds, mappings) = parse_file(filename);
+    // let seeds: Vec<_> = seeds
+    //     .chunks(2)
+    //     .map(|pair| MappingRange::new(pair[0], pair[0], pair[1]))
+    //     .collect();
+    // let seeds = Mapping { ranges: seeds };
+    //
+    // mappings
+    //     .iter()
+    //     .fold(seeds, |prev, next| prev.collapse_mappings(next))
+    //     .ranges
+    //     .iter()
+    //     .map(|r| r.dst)
+    //     .min()
+    //     .unwrap()
 }
 
 pub fn solution() -> Day<u64, u64> {
@@ -177,15 +251,15 @@ mod d05_tests {
 
     #[test]
     fn map_value_test() {
-        let (_, maps) = parse_file(solution().part_1.example);
+        let (_, mappings) = parse_file(solution().part_1.example);
 
-        let res = Mapping::map_value_many(1, &maps[0]);
+        let res = mappings[0].map_value(1);
         assert_eq!(res, 1);
 
-        let res = Mapping::map_value_many(79, &maps[0]);
+        let res = mappings[0].map_value(79);
         assert_eq!(res, 81);
 
-        let res = Mapping::map_value_many(99, &maps[0]);
+        let res = mappings[0].map_value(99);
         assert_eq!(res, 51);
     }
 

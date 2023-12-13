@@ -1,4 +1,4 @@
-use crate::utils::{Day, Solution, Task};
+use crate::utils::{Day, Task};
 
 pub fn p1_calibration_total(filename: &str) -> u32 {
     crate::utils::read_lines(filename)
