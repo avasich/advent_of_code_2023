@@ -1,5 +1,5 @@
 fn main() {
-    run_day(6);
+    run_day(7);
 }
 
 fn run_day(day_number: usize) {
@@ -11,8 +11,9 @@ fn run_day(day_number: usize) {
     let d04 = d04_scratchcards::solution();
     let d05 = d05_fertilizer::solution();
     let d06 = d06_wait_for_it::solution();
+    let d07 = d07_camel_cards::solution();
 
-    let days: Vec<&dyn Solution> = vec![&d01, &d02, &d03, &d04, &d05, &d06];
+    let days: Vec<&dyn Solution> = vec![&d01, &d02, &d03, &d04, &d05, &d06, &d07];
 
     let day = days[day_number - 1];
     day.run_part_1();
