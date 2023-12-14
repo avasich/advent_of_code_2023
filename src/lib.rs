@@ -8,4 +8,5 @@ pub mod d05_fertilizer;
 pub mod d06_wait_for_it;
 pub mod d07_camel_cards;
 pub mod d08_haunted_wasteland;
+pub mod d09_mirage_maintenance;
 pub mod utils;
