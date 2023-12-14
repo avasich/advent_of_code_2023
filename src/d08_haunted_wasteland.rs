@@ -100,37 +100,21 @@ fn count_ghost_steps_find_cycles(filename: &str) -> usize {
         .map(String::as_str)
         .collect_vec();
 
-    let n_dirs = directions.len();
-    let mut xs = vec![];
+    let mut res = 1;
 
     for p in positions {
-        let mut found_finishes: Vec<(&str, usize)> = vec![];
         let mut position = p;
 
         for (current_step, &direction) in directions.iter().cycle().enumerate() {
-            let current_step = current_step + 1;
-
             position = nodes[position].turn(direction);
-            if !position.ends_with('Z') {
-                continue;
-            }
-
-            let first_in_cycle = found_finishes.iter().find_position(|(pos, found_on_step)| {
-                *pos == position && (current_step - found_on_step) % n_dirs == 0
-            });
-
-            if let Some((_, (node, found_on_step))) = first_in_cycle {
-                println!("{node} {found_on_step}");
-                xs.push(*found_on_step);
+            if position.ends_with('Z') {
+                res = num::integer::lcm(res, current_step + 1);
                 break;
-            } else {
-                found_finishes.push((position, current_step));
             }
         }
     }
 
-    xs.iter()
-        .fold(1, |acc, x| num::integer::lcm(acc, *x))
+    res
 }
 
 pub fn solution() -> Day<usize, usize> {
