@@ -7,4 +7,5 @@ pub mod d04_scratchcards;
 pub mod d05_fertilizer;
 pub mod d06_wait_for_it;
 pub mod d07_camel_cards;
+pub mod d08_haunted_wasteland;
 pub mod utils;

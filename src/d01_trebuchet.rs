@@ -62,12 +62,12 @@ pub fn p2_calibration_total(filename: &str) -> u32 {
 pub fn solution() -> Day<u32, u32> {
     Day {
         part_1: Task {
-            example: "./inputs/day_01/example_01.txt",
+            examples: vec!["./inputs/day_01/example_01.txt"],
             task: "./inputs/day_01/task.txt",
             run: p1_calibration_total,
         },
         part_2: Task {
-            example: "./inputs/day_01/example_01.txt",
+            examples: vec!["./inputs/day_01/example_01.txt"],
             task: "./inputs/day_01/task.txt",
             run: p2_calibration_total,
         },
@@ -80,13 +80,13 @@ mod d01_tests {
 
     #[test]
     fn p1_example_test() {
-        let res = solution().part_1.run_example();
+        let res = solution().part_1.run_example(0);
         assert_eq!(res, 142);
     }
 
     #[test]
     fn p2_example_test() {
-        let res = solution().part_2.run_example();
+        let res = solution().part_2.run_example(0);
         assert_eq!(res, 281);
     }
 }

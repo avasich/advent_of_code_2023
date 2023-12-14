@@ -121,12 +121,12 @@ pub fn gear_ratio(filename: &str) -> u64 {
 pub fn solution() -> Day<u64, u64> {
     Day {
         part_1: Task {
-            example: "./inputs/day_03/example_01.txt",
+            examples: vec!["./inputs/day_03/example_01.txt"],
             task: "./inputs/day_03/task.txt",
             run: sum_part_numbers,
         },
         part_2: Task {
-            example: "./inputs/day_03/example_01.txt",
+            examples: vec![ "./inputs/day_03/example_01.txt"],
             task: "./inputs/day_03/task.txt",
             run: gear_ratio,
         },
@@ -139,7 +139,7 @@ mod d03_tests {
 
     #[test]
     fn read_integer_test() {
-        let filename = solution().part_1.example;
+        let filename = solution().part_1.examples[0];
 
         let lines: Vec<Vec<_>> = crate::utils::read_lines(filename)
             .map(|line| line.chars().collect())
@@ -164,7 +164,7 @@ mod d03_tests {
 
     #[test]
     fn integer_around_test() {
-        let filename = solution().part_1.example;
+        let filename = solution().part_1.examples[0];
 
         let lines: Vec<Vec<_>> = crate::utils::read_lines(filename)
             .map(|line| line.chars().collect())
@@ -182,13 +182,13 @@ mod d03_tests {
 
     #[test]
     fn p1_example_test() {
-        let res = solution().part_1.run_example();
+        let res = solution().part_1.run_example(0);
         assert_eq!(res, 4361);
     }
 
     #[test]
     fn p2_example_test() {
-        let res = solution().part_2.run_example();
+        let res = solution().part_2.run_example(0);
         assert_eq!(res, 467835);
     }
 }

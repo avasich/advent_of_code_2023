@@ -14,14 +14,14 @@ where
 }
 
 pub struct Task<Out: std::fmt::Display> {
-    pub example: &'static str,
+    pub examples: Vec<&'static str>,
     pub task: &'static str,
     pub run: fn(&str) -> Out,
 }
 
 impl<Out: std::fmt::Display> Task<Out> {
-    pub fn run_example(&self) -> Out {
-        (self.run)(self.example)
+    pub fn run_example(&self, n: usize) -> Out {
+        (self.run)(self.examples[n])
     }
 
     pub fn run_task(&self) {

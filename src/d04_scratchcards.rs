@@ -70,12 +70,12 @@ pub fn total_scratchcards(filename: &str) -> usize {
 pub fn solution() -> Day<u64, usize> {
     Day {
         part_1: Task {
-            example: "./inputs/day_04/example_01.txt",
+            examples: vec!["./inputs/day_04/example_01.txt"],
             task: "./inputs/day_04/task.txt",
             run: total_points,
         },
         part_2: Task {
-            example: "./inputs/day_04/example_01.txt",
+            examples: vec!["./inputs/day_04/example_01.txt"],
             task: "./inputs/day_04/task.txt",
             run: total_scratchcards,
         },
@@ -88,7 +88,7 @@ mod d04_tests {
 
     #[test]
     fn parse_card_test() {
-        let filename = solution().part_1.example;
+        let filename = solution().part_1.examples[0];
 
         let lines: Vec<_> = crate::utils::read_lines(filename).collect();
 
@@ -105,13 +105,13 @@ mod d04_tests {
 
     #[test]
     fn p1_example_test() {
-        let res = solution().part_1.run_example();
+        let res = solution().part_1.run_example(0);
         assert_eq!(res, 13);
     }
 
     #[test]
     fn p2_example_test() {
-        let res = solution().part_2.run_example();
+        let res = solution().part_2.run_example(0);
         assert_eq!(res, 30);
     }
 }

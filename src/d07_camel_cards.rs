@@ -88,12 +88,12 @@ pub fn solution() -> Day<u64, u64> {
 
     Day {
         part_1: Task {
-            example: "inputs/day_07/example_01.txt",
+            examples: vec!["inputs/day_07/example_01.txt"],
             task: "inputs/day_07/task.txt",
             run: part_1,
         },
         part_2: Task {
-            example: "inputs/day_07/example_01.txt",
+            examples: vec!["inputs/day_07/example_01.txt"],
             task: "inputs/day_07/task.txt",
             run: part_2,
         },
@@ -106,13 +106,13 @@ mod d07_tests {
 
     #[test]
     fn p1_example_test() {
-        let res = solution().part_1.run_example();
+        let res = solution().part_1.run_example(0);
         assert_eq!(6440, res);
     }
 
     #[test]
     fn p2_example_test() {
-        let res = solution().part_2.run_example();
+        let res = solution().part_2.run_example(0);
         assert_eq!(5905, res);
     }
 

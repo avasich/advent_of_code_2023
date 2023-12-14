@@ -218,13 +218,13 @@ pub fn lowest_location_range(filename: &str) -> u64 {
 pub fn solution() -> Day<u64, u64> {
     Day {
         part_1: Task {
-            example: "./inputs/day_05/example_01.txt",
+            examples: vec!["./inputs/day_05/example_01.txt"],
             task: "./inputs/day_05/task.txt",
             run: lowest_location,
         },
 
         part_2: Task {
-            example: "./inputs/day_05/example_01.txt",
+            examples: vec!["./inputs/day_05/example_01.txt"],
             task: "./inputs/day_05/task.txt",
             run: lowest_location_range,
         },
@@ -237,7 +237,7 @@ mod d05_tests {
 
     #[test]
     fn map_value_test() {
-        let (_, mappings) = parse_file(solution().part_1.example);
+        let (_, mappings) = parse_file(solution().part_1.examples[0]);
 
         let res = mappings[0].map_value(1);
         assert_eq!(res, 1);
@@ -251,13 +251,13 @@ mod d05_tests {
 
     #[test]
     fn p1_example_test() {
-        let res = solution().part_1.run_example();
+        let res = solution().part_1.run_example(0);
         assert_eq!(res, 35);
     }
 
     #[test]
     fn p2_example_test() {
-        let res = solution().part_2.run_example();
+        let res = solution().part_2.run_example(0);
         assert_eq!(res, 46);
     }
 }

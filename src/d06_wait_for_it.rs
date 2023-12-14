@@ -62,12 +62,12 @@ fn ways_to_win_task(filename: &str) -> i64 {
 pub fn solution() -> Day<i64, i64> {
     Day {
         part_1: Task {
-            example: "./inputs/day_06/example_01.txt",
+            examples: vec!["./inputs/day_06/example_01.txt"],
             task: "./inputs/day_06/task.txt",
             run: product_of_ways_to_win,
         },
         part_2: Task {
-            example: "./inputs/day_06/example_01.txt",
+            examples: vec!["./inputs/day_06/example_01.txt"],
             task: "./inputs/day_06/task.txt",
             run: ways_to_win_task,
         },
@@ -87,13 +87,13 @@ mod d06_tests {
 
     #[test]
     fn p1_example_test() {
-        let res = solution().part_1.run_example();
+        let res = solution().part_1.run_example(0);
         assert_eq!(res, 288);
     }
 
     #[test]
     fn p2_example_test() {
-        let res = solution().part_2.run_example();
+        let res = solution().part_2.run_example(0);
         assert_eq!(res, 71503);
     }
 }
