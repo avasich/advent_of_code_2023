@@ -40,16 +40,11 @@ impl Connection {
     }
 }
 
-fn count_steps(filename: &str) -> u64 {
+fn parse_file(filename: &str) -> (Vec<Direction>, HashMap<String, Connection>) {
     let mut lines = crate::utils::read_lines(filename);
-    let directions = lines
-        .next()
-        .unwrap()
-        .chars()
-        .map(Direction::from)
-        .collect_vec();
+    let directions = lines.next().unwrap().chars().map(Direction::from).collect();
 
-    let nodes: HashMap<_, _> = lines
+    let nodes = lines
         .skip(1)
         .map(|line| {
             let (name, nodes) = line.split_once(" = ").unwrap();
@@ -57,25 +52,88 @@ fn count_steps(filename: &str) -> u64 {
         })
         .collect();
 
-    let mut position = "AAA";
-    let mut steps = 0;
+    (directions, nodes)
+}
 
-    for &direction in directions.iter().cycle() {
+fn count_steps(filename: &str) -> usize {
+    let (directions, nodes) = parse_file(filename);
+    let mut position = "AAA";
+
+    for (steps, &direction) in directions.iter().cycle().enumerate() {
         position = nodes[position].turn(direction);
-        steps += 1;
         if position == "ZZZ" {
-            break;
+            return steps + 1;
         }
     }
 
-    steps
+    unreachable!()
 }
 
-fn part_2(filename: &str) -> u64 {
-    1
+#[allow(dead_code)]
+fn count_ghost_steps_naive(filename: &str) -> usize {
+    let (directions, nodes) = parse_file(filename);
+
+    let mut positions = nodes
+        .keys()
+        .filter(|node| node.ends_with('A'))
+        .map(String::as_str)
+        .collect_vec();
+
+    for (steps, &direction) in directions.iter().cycle().enumerate() {
+        for position in positions.iter_mut() {
+            *position = nodes[*position].turn(direction);
+        }
+        if positions.iter().all(|p| p.ends_with('Z')) {
+            return steps + 1;
+        }
+    }
+
+    unreachable!()
 }
 
-pub fn solution() -> Day<u64, u64> {
+fn count_ghost_steps_find_cycles(filename: &str) -> usize {
+    let (directions, nodes) = parse_file(filename);
+
+    let positions = nodes
+        .keys()
+        .filter(|node| node.ends_with('A'))
+        .map(String::as_str)
+        .collect_vec();
+
+    let n_dirs = directions.len();
+    let mut xs = vec![];
+
+    for p in positions {
+        let mut found_finishes: Vec<(&str, usize)> = vec![];
+        let mut position = p;
+
+        for (current_step, &direction) in directions.iter().cycle().enumerate() {
+            let current_step = current_step + 1;
+
+            position = nodes[position].turn(direction);
+            if !position.ends_with('Z') {
+                continue;
+            }
+
+            let first_in_cycle = found_finishes.iter().find_position(|(pos, found_on_step)| {
+                *pos == position && (current_step - found_on_step) % n_dirs == 0
+            });
+
+            if let Some((_, (node, found_on_step))) = first_in_cycle {
+                println!("{node} {found_on_step}");
+                xs.push(*found_on_step);
+                break;
+            } else {
+                found_finishes.push((position, current_step));
+            }
+        }
+    }
+
+    xs.iter()
+        .fold(1, |acc, x| num::integer::lcm(acc, *x))
+}
+
+pub fn solution() -> Day<usize, usize> {
     Day {
         part_1: Task {
             examples: vec![
@@ -86,9 +144,9 @@ pub fn solution() -> Day<u64, u64> {
             run: count_steps,
         },
         part_2: Task {
-            examples: vec!["./inputs/day_08/example_01.txt"],
+            examples: vec!["./inputs/day_08/example_03.txt"],
             task: "./inputs/day_08/task.txt",
-            run: part_2,
+            run: count_ghost_steps_find_cycles,
         },
     }
 }
@@ -112,6 +170,6 @@ mod tests {
     fn p2_example_test() {
         let solution = solution();
         let res = solution.part_2.run_example(0);
-        assert_eq!(1, res);
+        assert_eq!(6, res);
     }
 }
