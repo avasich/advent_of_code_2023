@@ -1,131 +1,187 @@
-use std::fmt::Formatter;
-
-use itertools::Itertools;
+use std::{collections::HashMap, fmt::Formatter};
 
 use crate::utils::{Day, Task};
 
-#[derive(Eq, PartialEq)]
-enum Tile {
+#[derive(Eq, PartialEq, Copy, Clone)]
+enum Spring {
     Good,
     Bad,
     Unknown,
 }
 
-impl Tile {
+impl Spring {
     fn possibly_bad(&self) -> bool {
-        !matches!(self, Tile::Good)
+        !matches!(self, Spring::Good)
     }
 }
 
-impl std::fmt::Display for Tile {
+impl std::fmt::Display for Spring {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Tile::Good => write!(f, "."),
-            Tile::Bad => write!(f, "#"),
-            Tile::Unknown => write!(f, "?"),
+            Spring::Good => write!(f, "."),
+            Spring::Bad => write!(f, "#"),
+            Spring::Unknown => write!(f, "?"),
         }
     }
 }
 
-impl std::fmt::Debug for Tile {
+impl std::fmt::Debug for Spring {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{self}")
     }
 }
 
-impl From<char> for Tile {
+impl From<char> for Spring {
     fn from(value: char) -> Self {
         match value {
-            '.' => Tile::Good,
-            '#' => Tile::Bad,
-            '?' => Tile::Unknown,
+            '.' => Spring::Good,
+            '#' => Spring::Bad,
+            '?' => Spring::Unknown,
             _ => unreachable!("wrong tile '{value}'"),
         }
     }
 }
 
-fn parse_line(line: &str) -> (Vec<Tile>, Vec<usize>) {
-    let (spans_line, consecutives) = line.split_once(' ').unwrap();
-    let mut spans = vec![];
+struct SpringLine {
+    springs: Vec<Spring>,
+    bad_spans: Vec<usize>,
+    cache: HashMap<(usize, usize), usize>,
+}
 
-    for (possibly_bad, span) in &spans_line
-        .chars()
-        .map(Tile::from)
-        .group_by(Tile::possibly_bad)
-    {
-        if possibly_bad {
-            spans.extend(span);
-        } else {
-            spans.push(Tile::Good)
+impl SpringLine {
+    fn expand(
+        springs: Vec<Spring>,
+        bas_spans: Vec<usize>,
+        times: usize,
+    ) -> (Vec<Spring>, Vec<usize>) {
+        let new_springs = std::iter::repeat(springs)
+            .take(times)
+            .intersperse(vec![Spring::Unknown])
+            .flatten()
+            .collect();
+
+        let new_spans = std::iter::repeat(bas_spans).take(times).flatten().collect();
+
+        (new_springs, new_spans)
+    }
+
+    fn from_line(line: &str, repeat: usize) -> Self {
+        use itertools::Itertools;
+
+        let (springs_line, bad_spans_line) = line.split_once(' ').unwrap();
+        let mut springs = vec![];
+
+        for (possibly_bad, spring_span) in &springs_line
+            .chars()
+            .map(Spring::from)
+            .group_by(Spring::possibly_bad)
+        {
+            if possibly_bad {
+                springs.extend(spring_span);
+            } else {
+                springs.push(Spring::Good)
+            }
+        }
+
+        let bad_spans = bad_spans_line.split(',').flat_map(str::parse).collect();
+
+        let (springs, bad_spans) = Self::expand(springs, bad_spans, repeat);
+
+        Self {
+            springs,
+            bad_spans,
+            cache: HashMap::new(),
         }
     }
 
-    let consecutives = consecutives.split(',').flat_map(str::parse).collect();
+    fn bad_len(&self) -> usize {
+        self.bad_spans.len()
+    }
 
-    (spans, consecutives)
-}
+    fn spring_at(&self, i: usize) -> Option<&Spring> {
+        self.springs.get(i)
+    }
 
-fn count_variants(spans: &[Tile], consecutives: &[usize]) -> usize {
-    fn bad_count(spans: &[Tile], cap: usize) -> usize {
-        spans
+    fn bad_span_at(&self, i: usize) -> Option<&usize> {
+        self.bad_spans.get(i)
+    }
+
+    fn possibly_bad_count(&self, start: usize, cap: usize) -> usize {
+        self.springs[start..]
             .iter()
             .take(cap)
-            .take_while(|tile| tile.possibly_bad())
+            .take_while(|spring| spring.possibly_bad())
             .count()
     }
 
-    match (spans.first(), consecutives.first()) {
-        (_, None) if spans.contains(&Tile::Bad) => 0,
-        (_, None) => 1,
-        (None, Some(_)) => 0,
-        (Some(Tile::Good), Some(_)) => count_variants(&spans[1..], consecutives),
-        (Some(Tile::Bad), Some(&n)) => {
-            let matching = bad_count(spans, n);
+    fn next_bad(&self, start: usize, cap: usize) -> Option<usize> {
+        self.springs[start..]
+            .iter()
+            .take(cap)
+            .position(|spring| matches!(spring, Spring::Bad))
+    }
 
-            match spans.get(n) {
-                _ if matching != n => 0,
-                None if consecutives.len() > 1 => 0,
-                None => 1,
-                Some(Tile::Bad) => 0,
-                Some(_) => count_variants(&spans[(n + 1)..], &consecutives[1..]),
-            }
+    fn count_variants(&mut self, si: usize, bi: usize) -> usize {
+        if let Some(res) = self.cache.get(&(si, bi)) {
+            return *res;
         }
-        (Some(Tile::Unknown), Some(&n)) => {
-            let matching = bad_count(spans, n);
 
-            match spans.get(n) {
-                _ if matching != n => {
-                    let continue_from = spans
-                        .iter()
-                        .take(matching)
-                        .position(|tile| matches!(tile, Tile::Bad))
-                        .unwrap_or(matching);
-                    count_variants(&spans[continue_from..], consecutives)
-                }
-                None if consecutives.len() > 1 => 0,
-                None => 1,
-                Some(Tile::Bad) => count_variants(&spans[1..], consecutives),
-                Some(_) => {
-                    let starting_here = count_variants(&spans[(n + 1)..], &consecutives[1..]);
-                    let skipping_it = count_variants(&spans[1..], consecutives);
-                    starting_here + skipping_it
+        let res = match (self.spring_at(si), self.bad_span_at(bi)) {
+            (_, None) if self.springs[si..].contains(&Spring::Bad) => 0,
+            (_, None) => 1,
+            (None, Some(_)) => 0,
+            (Some(Spring::Good), Some(_)) => self.count_variants(si + 1, bi),
+            (Some(Spring::Bad), Some(&n)) => {
+                let possibly_bad_count = self.possibly_bad_count(si, n);
+
+                match self.spring_at(si + n) {
+                    _ if possibly_bad_count != n => 0,
+                    None if self.bad_len() - bi > 1 => 0,
+                    None => 1,
+                    Some(Spring::Bad) => 0,
+                    Some(_) => self.count_variants(si + n + 1, bi + 1),
                 }
             }
-        }
+            (Some(Spring::Unknown), Some(&n)) => {
+                let possibly_bad_count = self.possibly_bad_count(si, n);
+
+                match self.spring_at(si + n) {
+                    _ if possibly_bad_count != n => {
+                        let continue_from = self
+                            .next_bad(si, possibly_bad_count)
+                            .unwrap_or(possibly_bad_count);
+                        self.count_variants(si + continue_from, bi)
+                    }
+                    None if self.bad_len() - bi > 1 => 0,
+                    None => 1,
+                    Some(Spring::Bad) => self.count_variants(si + 1, bi),
+                    Some(_) => {
+                        let starting_here = self.count_variants(si + n + 1, bi + 1);
+                        let skipping_it = self.count_variants(si + 1, bi);
+                        starting_here + skipping_it
+                    }
+                }
+            }
+        };
+
+        self.cache.insert((si, bi), res);
+
+        res
     }
 }
 
 fn part_1(filename: &str) -> usize {
     crate::utils::read_lines(filename)
-        .map(|line| parse_line(&line))
-        .map(|(spans, consecutives)| count_variants(&spans, &consecutives))
+        .map(|line| SpringLine::from_line(&line, 1))
+        .map(|mut line| line.count_variants(0, 0))
         .sum()
 }
 
 fn part_2(filename: &str) -> usize {
-    println!("part 2 not solved");
-    0
-    // todo!()
+    crate::utils::read_lines(filename)
+        .map(|line| SpringLine::from_line(&line, 5))
+        .map(|mut line| line.count_variants(0, 0))
+        .sum()
 }
 
 pub fn solution() -> Day<usize, usize> {
@@ -155,8 +211,8 @@ mod d11_tests {
     }
 
     fn from_line(line: &str) -> usize {
-        let (spans, cons) = parse_line(line);
-        count_variants(&spans, &cons)
+        let mut spring_line = SpringLine::from_line(line, 1);
+        spring_line.count_variants(0, 0)
     }
 
     #[test]

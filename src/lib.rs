@@ -1,5 +1,6 @@
 #![feature(const_trait_impl)]
 #![feature(exclusive_range_pattern)]
+#![feature(iter_intersperse)]
 
 pub mod d01_trebuchet;
 pub mod d02_cube_conundrum;
