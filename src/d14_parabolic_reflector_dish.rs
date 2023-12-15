@@ -224,9 +224,7 @@ impl Board {
         fn print_spans(all_spans: &[Vec<(usize, usize)>]) {
             for (i, spans) in all_spans.iter().enumerate() {
                 print!("{i}: ");
-                for &(a, b) in spans {
-                    print!("{a}:{b} ");
-                }
+                spans.iter().for_each(|(a, b)| print!("{a}:{b} "));
                 println!();
             }
         }
