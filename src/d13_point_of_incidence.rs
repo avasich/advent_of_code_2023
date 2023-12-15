@@ -42,15 +42,11 @@ fn find_axes(dp: Vec<Vec<bool>>) -> HashSet<usize> {
     axes
 }
 
-fn find_axis<C: AsRef<Vec<char>>>(lines: impl Iterator<Item = C>) -> Option<usize> {
+fn count_axes<C: AsRef<Vec<char>>>(lines: impl Iterator<Item = C>) -> HashMap<usize, usize> {
     lines
         .map(|col| palindrome_table(col.as_ref()))
-        .map(find_axes)
-        .reduce(|mut a, b| {
-            a.retain(|x| b.contains(x));
-            a
-        })
-        .and_then(|s| s.iter().copied().next())
+        .flat_map(find_axes)
+        .counts()
 }
 
 #[derive(Debug)]
@@ -67,17 +63,44 @@ impl Field {
 
     fn find_axis(&self) -> Axis {
         let rows = self.tiles.len();
-        let cols = self.tiles[0].len();
-
-        let vertical = find_axis(self.tiles.iter());
-        if let Some(axis) = vertical {
-            return Axis::Vertical(axis);
+        if let Some(ax) = count_axes(self.tiles.iter())
+            .iter()
+            .find_map(|(ax, n)| (*n == rows).then_some(*ax))
+        {
+            return Axis::Vertical(ax);
         }
 
+        let cols = self.tiles[0].len();
         let horizontal = (0..cols).map(|x| (0..rows).map(|y| self.tiles[y][x]).collect_vec());
-        let horizontal = find_axis(horizontal);
+        if let Some(ax) = count_axes(horizontal)
+            .iter()
+            .find_map(|(ax, n)| (*n == cols).then_some(*ax))
+        {
+            return Axis::Horizontal(ax);
+        }
 
-        Axis::Horizontal(horizontal.expect("no axis found"))
+        unreachable!()
+    }
+
+    fn find_axis_2(&self) -> Axis {
+        let rows = self.tiles.len();
+        if let Some(ax) = count_axes(self.tiles.iter())
+            .iter()
+            .find_map(|(ax, n)| (*n == rows - 1).then_some(*ax))
+        {
+            return Axis::Vertical(ax);
+        }
+
+        let cols = self.tiles[0].len();
+        let horizontal = (0..cols).map(|x| (0..rows).map(|y| self.tiles[y][x]).collect_vec());
+        if let Some(ax) = count_axes(horizontal)
+            .iter()
+            .find_map(|(ax, n)| (*n == cols - 1).then_some(*ax))
+        {
+            return Axis::Horizontal(ax);
+        }
+
+        unreachable!()
     }
 }
 
@@ -95,16 +118,25 @@ fn part_1(filename: &str) -> usize {
         .sum()
 }
 
-fn part_2(filename: &str) -> u64 {
-    1
+fn part_2(filename: &str) -> usize {
+    crate::utils::read_lines(filename)
+        .group_by(|line| line.is_empty())
+        .into_iter()
+        .filter(|(is_empty, _)| !is_empty)
+        .map(|(_, lines)| Field::from_string_iter(lines))
+        .map(|field| field.find_axis_2())
+        .map(|axis| match axis {
+            Axis::Horizontal(n) => 100 * n,
+            Axis::Vertical(n) => n,
+        })
+        .sum()
 }
 
-pub fn solution() -> Day<usize, u64> {
+pub fn solution() -> Day<usize, usize> {
     Day {
         part_1: Task {
             examples: vec!["./inputs/day_13/example_01.txt"],
-            task: "./inputs/day_13/example_01.txt",
-            // task: "./inputs/day_13/task.txt",
+            task: "./inputs/day_13/task.txt",
             run: part_1,
         },
 
@@ -146,6 +178,6 @@ mod d13_tests {
     #[test]
     fn p2_example_test() {
         let res = solution().part_2.run_example(0);
-        assert_eq!(res, 0);
+        assert_eq!(res, 400);
     }
 }
