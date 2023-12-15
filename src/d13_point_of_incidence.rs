@@ -4,10 +4,6 @@ use itertools::Itertools;
 
 use crate::utils::{Day, Task};
 
-struct Field {
-    tiles: Vec<Vec<char>>,
-}
-
 fn palindrome_table(line: &[char]) -> Vec<Vec<bool>> {
     let n = line.len();
     let mut dp = vec![vec![false; n]; n];
@@ -55,17 +51,21 @@ enum Axis {
     Vertical(usize),
 }
 
+struct Field {
+    tiles: Vec<Vec<char>>,
+}
+
 impl Field {
     fn from_string_iter(lines: impl Iterator<Item = String>) -> Field {
         let tiles = lines.map(|line| line.chars().collect()).collect();
         Field { tiles }
     }
 
-    fn find_axis(&self) -> Axis {
+    fn find_axis(&self, less: usize) -> Axis {
         let rows = self.tiles.len();
         if let Some(ax) = count_axes(self.tiles.iter())
             .iter()
-            .find_map(|(ax, n)| (*n == rows).then_some(*ax))
+            .find_map(|(ax, n)| (*n == rows - less).then_some(*ax))
         {
             return Axis::Vertical(ax);
         }
@@ -74,28 +74,7 @@ impl Field {
         let horizontal = (0..cols).map(|x| (0..rows).map(|y| self.tiles[y][x]).collect_vec());
         if let Some(ax) = count_axes(horizontal)
             .iter()
-            .find_map(|(ax, n)| (*n == cols).then_some(*ax))
-        {
-            return Axis::Horizontal(ax);
-        }
-
-        unreachable!()
-    }
-
-    fn find_axis_2(&self) -> Axis {
-        let rows = self.tiles.len();
-        if let Some(ax) = count_axes(self.tiles.iter())
-            .iter()
-            .find_map(|(ax, n)| (*n == rows - 1).then_some(*ax))
-        {
-            return Axis::Vertical(ax);
-        }
-
-        let cols = self.tiles[0].len();
-        let horizontal = (0..cols).map(|x| (0..rows).map(|y| self.tiles[y][x]).collect_vec());
-        if let Some(ax) = count_axes(horizontal)
-            .iter()
-            .find_map(|(ax, n)| (*n == cols - 1).then_some(*ax))
+            .find_map(|(ax, n)| (*n == cols - less).then_some(*ax))
         {
             return Axis::Horizontal(ax);
         }
@@ -104,28 +83,13 @@ impl Field {
     }
 }
 
-fn part_1(filename: &str) -> usize {
+fn run(filename: &str, skip: usize) -> usize {
     crate::utils::read_lines(filename)
         .group_by(|line| line.is_empty())
         .into_iter()
         .filter(|(is_empty, _)| !is_empty)
         .map(|(_, lines)| Field::from_string_iter(lines))
-        .map(|field| field.find_axis())
-        .map(|axis| match axis {
-            Axis::Horizontal(n) => 100 * n,
-            Axis::Vertical(n) => n,
-        })
-        .sum()
-}
-
-fn part_2(filename: &str) -> usize {
-    crate::utils::read_lines(filename)
-        .group_by(|line| line.is_empty())
-        .into_iter()
-        .filter(|(is_empty, _)| !is_empty)
-        .map(|(_, lines)| Field::from_string_iter(lines))
-        .map(|field| field.find_axis_2())
-        .map(|axis| match axis {
+        .map(|field| match field.find_axis(skip) {
             Axis::Horizontal(n) => 100 * n,
             Axis::Vertical(n) => n,
         })
@@ -133,6 +97,13 @@ fn part_2(filename: &str) -> usize {
 }
 
 pub fn solution() -> Day<usize, usize> {
+    fn part_1(filename: &str) -> usize {
+        run(filename, 0)
+    }
+    fn part_2(filename: &str) -> usize {
+        run(filename, 1)
+    }
+
     Day {
         part_1: Task {
             examples: vec!["./inputs/day_13/example_01.txt"],
