@@ -1,3 +1,4 @@
+#![feature(anonymous_lifetime_in_impl_trait)]
 #![feature(const_trait_impl)]
 #![feature(exclusive_range_pattern)]
 #![feature(iter_intersperse)]
@@ -14,4 +15,5 @@ pub mod d09_mirage_maintenance;
 pub mod d10_pipe_maze;
 pub mod d11_cosmic_expansion;
 pub mod d12_hot_springs;
+pub mod d13_point_of_incidence;
 pub mod utils;

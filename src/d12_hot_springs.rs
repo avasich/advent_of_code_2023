@@ -200,7 +200,7 @@ pub fn solution() -> Day<usize, usize> {
 }
 
 #[cfg(test)]
-mod d11_tests {
+mod d12_tests {
     use super::*;
 
     #[test]

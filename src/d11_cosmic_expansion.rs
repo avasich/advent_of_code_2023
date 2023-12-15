@@ -73,7 +73,7 @@ pub fn solution() -> Day<usize, usize> {
             run: part_1,
         },
         part_2: Task {
-            examples: vec!["./inputs/day_11/example_03.txt"],
+            examples: vec![],
             task: "./inputs/day_11/task.txt",
             run: part_2,
         },
