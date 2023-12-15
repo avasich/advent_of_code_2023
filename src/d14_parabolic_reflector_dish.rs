@@ -77,15 +77,13 @@ impl Board {
                 .collect_vec()
         }
 
-        let ts = &tiles;
-
-        let horizontal_spans = (0..height)
-            .map(|y| (0..width).map(move |x| &ts[x + y * width]))
-            .map(|row| free_spans(row, width))
+        let horizontal_spans = tiles
+            .chunks(width)
+            .map(|row| free_spans(row.iter(), width))
             .collect_vec();
 
         let vertical_spans = (0..width)
-            .map(|x| (0..height).map(move |y| &ts[x + y * width]))
+            .map(|x| tiles.iter().skip(x).step_by(width))
             .map(|col| free_spans(col, height))
             .collect_vec();
 
@@ -98,13 +96,11 @@ impl Board {
         }
     }
 
-    fn get(&self, x: usize, y: usize) -> Tile {
-        self.tiles.borrow()[x + y * self.width]
-    }
-
     fn fill_col(&self, col: usize, y1: usize, y2: usize, tile: Tile) {
         let mut tiles = self.tiles.borrow_mut();
-        (y1..y2).for_each(|y| tiles[col + y * self.width] = tile);
+        let i1 = col + y1 * self.width;
+        let i2 = col + y2 * self.width;
+        (i1..i2).step_by(self.width).for_each(|i| tiles[i] = tile);
     }
 
     fn fill_row(&self, row: usize, x1: usize, x2: usize, tile: Tile) {
@@ -115,9 +111,11 @@ impl Board {
 
     fn count_in_col(&self, col: usize, y1: usize, y2: usize, tile: Tile) -> usize {
         let tiles = self.tiles.borrow();
-        (y1..y2)
-            .map(|y| tiles[col + y * self.width])
-            .filter(|t| *t == tile)
+        let i1 = col + y1 * self.width;
+        let i2 = col + y2 * self.width;
+        (i1..i2)
+            .step_by(self.width)
+            .filter(|i| tiles[*i] == tile)
             .count()
     }
 
@@ -215,11 +213,9 @@ impl Board {
     #[allow(dead_code)]
     fn print(&self) {
         println!("{}x{}", self.width, self.height);
-        for y in 0..self.height {
-            for x in 0..self.width {
-                print!("{}", self.get(x, y));
-            }
-            println!();
+        for row in self.tiles.borrow().chunks(self.width) {
+            row.iter().for_each(|tile| print!("{tile}"));
+            println!()
         }
         fn print_spans(all_spans: &[Vec<(usize, usize)>]) {
             for (i, spans) in all_spans.iter().enumerate() {
