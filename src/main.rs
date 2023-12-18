@@ -1,5 +1,5 @@
 fn main() {
-    run_day(16);
+    run_day(17);
 }
 
 fn run_day(day_number: usize) {
@@ -22,6 +22,7 @@ fn run_day(day_number: usize) {
         14 => Box::new(d14_parabolic_reflector_dish::solution()),
         15 => Box::new(d15_lens_library::solution()),
         16 => Box::new(d16_the_floor_will_be_lava::solution()),
+        17 => Box::new(d17_clumsy_crucible::solution()),
         _ => unreachable!(),
     };
 
