@@ -128,8 +128,6 @@ impl LossMap {
     }
 
     fn min_loss<const MIN_STEPS: usize, const MAX_STEPS: usize>(&self) -> u32 {
-        use Direction::*;
-
         let make_step = |Point { x, y }, dir| match dir {
             Left if x == 0 => None,
             Left => Some(Point::new(x - 1, y)),
