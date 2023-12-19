@@ -228,10 +228,10 @@ mod d17_tests {
     fn p2_example_test() {
         let solution = solution();
 
-        let res = solution.part_2.run_example(1);
-        assert_eq!(71, res);
-
         let res = solution.part_2.run_example(0);
         assert_eq!(94, res);
+
+        let res = solution.part_2.run_example(1);
+        assert_eq!(71, res);
     }
 }
