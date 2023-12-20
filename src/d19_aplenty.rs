@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 
 use itertools::Itertools;
@@ -7,52 +5,79 @@ use Condition::*;
 
 use crate::utils::{Day, Task};
 
-#[derive(Debug, Copy, Clone)]
-struct Part {
-    x: u64,
-    m: u64,
-    a: u64,
-    s: u64,
+#[derive(Debug, Copy, Clone, Default)]
+struct PartRange {
+    vals: [Option<(u64, u64)>; 4],
 }
 
-impl Part {
-    fn get(&self, field: &Field) -> u64 {
-        match field {
-            Field::X => self.x,
-            Field::M => self.m,
-            Field::A => self.a,
-            Field::S => self.s,
-        }
-    }
-
-    fn satisfies(&self, condition: &Condition) -> bool {
-        match condition {
-            LT(field, val) => self.get(field) < *val,
-            GT(field, val) => self.get(field) > *val,
-            True => true,
-        }
-    }
-
-    fn from_string(s: String) -> Self {
+impl PartRange {
+    fn parse_part(s: String) -> Self {
         let mut vs = s[1..(s.len() - 1)]
             .split(',')
-            .flat_map(|val| val[2..].parse());
-        let x = vs.next().unwrap();
-        let m = vs.next().unwrap();
-        let a = vs.next().unwrap();
-        let s = vs.next().unwrap();
-
-        Self { x, m, a, s }
+            .flat_map(|val| val[2..].parse::<u64>())
+            .map(|v| (v, v));
+        let vals = [vs.next(), vs.next(), vs.next(), vs.next()];
+        Self { vals }
     }
 
-    fn sum_fields(&self) -> u64 {
-        self.x + self.m + self.a + self.s
+    fn get_field(&self, f: Field) -> Option<(u64, u64)> {
+        self.vals[f as usize]
+    }
+
+    fn with_field(&self, f: Field, v: Option<(u64, u64)>) -> Self {
+        let mut range = *self;
+        range.vals[f as usize] = v;
+        range
+    }
+
+    fn is_empty(&self) -> bool {
+        self.vals.iter().any(Option::is_none)
+    }
+
+    fn product(&self) -> u64 {
+        self.vals
+            .iter()
+            .flatten()
+            .map(|(v1, v2)| v2 - v1 + 1)
+            .product()
+    }
+
+    fn sum(&self) -> u64 {
+        self.vals.iter().flatten().map(|(v, _)| *v).sum()
+    }
+
+    fn partition(self, c: Condition) -> (Self, Self) {
+        if self.is_empty() {
+            return (Self::default(), Self::default());
+        }
+
+        match c {
+            LT(f, p) => {
+                let (a, b) = self.get_field(f).unwrap();
+                let less = (a < p).then_some((a, (p - 1).min(b)));
+                let greater_or_equal = (p <= b).then_some((p.max(a), b));
+                (
+                    self.with_field(f, less),
+                    self.with_field(f, greater_or_equal),
+                )
+            }
+            GT(f, p) => {
+                let (a, b) = self.get_field(f).unwrap();
+                let less_or_equal = (a <= p).then_some((a, p.min(b)));
+                let greater = (p < b).then_some(((p + 1).max(a), b));
+                (
+                    self.with_field(f, greater),
+                    self.with_field(f, less_or_equal),
+                )
+            }
+            True => (self, Self::default()),
+        }
     }
 }
 
 #[derive(Debug, Copy, Clone)]
 enum Field {
-    X,
+    X = 0,
     M,
     A,
     S,
@@ -109,20 +134,12 @@ struct Workflow {
 }
 
 impl Workflow {
-    fn send_part(&self, part: &Part) -> &str {
-        self.rules
-            .iter()
-            .find_map(|rule| part.satisfies(&rule.condition).then_some(&rule.target))
-            .unwrap()
-    }
-
     fn from_string(s: String) -> Self {
         let (name, rules) = s.split_once('{').unwrap();
         let rules = rules[..rules.len() - 1]
             .split(',')
             .map(Rule::from_string)
             .collect_vec();
-
         Self {
             name: name.to_string(),
             rules,
@@ -143,72 +160,21 @@ impl Validator {
         Self { workflows }
     }
 
-    fn check(&self, part: &Part) -> bool {
-        let mut wf_name = "in";
-        loop {
-            match self.workflows.get(wf_name).unwrap().send_part(part) {
-                "A" => return true,
-                "R" => return false,
-                name => wf_name = name,
-            }
-        }
-    }
-
-    fn count_matching_variants(
-        &self,
-        wf_name: &str,
-        rule_n: usize,
-        xx: Option<(u64, u64)>,
-        mm: Option<(u64, u64)>,
-        aa: Option<(u64, u64)>,
-        ss: Option<(u64, u64)>,
-    ) -> u64 {
-        if wf_name == "R" || [xx, mm, aa, ss].iter().any(Option::is_none) {
+    fn count_matching(&self, wf_name: &str, rule_n: usize, range: PartRange) -> u64 {
+        if wf_name == "R" || range.is_empty() {
             return 0;
-        }
-
-        if wf_name == "A" {
-            return [xx, mm, aa, ss]
-                .iter()
-                .flatten()
-                .map(|(v1, v2)| v2 - v1 + 1)
-                .product();
+        } else if wf_name == "A" {
+            return range.product();
         }
 
         let wf = self.workflows.get(wf_name).unwrap();
-        let rule = &wf.rules[rule_n];
+        let Rule { target, condition } = &wf.rules[rule_n];
 
-        match rule.condition {
-            LT(Field::X, _) | GT(Field::X, _) => {
-                let PartitionResult { matching, rest } = partition(xx.unwrap(), rule.condition);
+        let (matching, rest) = range.partition(*condition);
+        let matching = self.count_matching(target, 0, matching);
+        let rest = self.count_matching(wf_name, rule_n + 1, rest);
 
-                let matching = self.count_matching_variants(&rule.target, 0, matching, mm, aa, ss);
-                let rest = self.count_matching_variants(wf_name, rule_n + 1, rest, mm, aa, ss);
-                matching + rest
-            }
-            LT(Field::M, _) | GT(Field::M, _) => {
-                let PartitionResult { matching, rest } = partition(mm.unwrap(), rule.condition);
-
-                let matching = self.count_matching_variants(&rule.target, 0, xx, matching, aa, ss);
-                let rest = self.count_matching_variants(wf_name, rule_n + 1, xx, rest, aa, ss);
-                matching + rest
-            }
-            LT(Field::A, _) | GT(Field::A, _) => {
-                let PartitionResult { matching, rest } = partition(aa.unwrap(), rule.condition);
-
-                let matching = self.count_matching_variants(&rule.target, 0, xx, mm, matching, ss);
-                let rest = self.count_matching_variants(wf_name, rule_n + 1, xx, mm, rest, ss);
-                matching + rest
-            }
-            LT(Field::S, _) | GT(Field::S, _) => {
-                let PartitionResult { matching, rest } = partition(ss.unwrap(), rule.condition);
-
-                let matching = self.count_matching_variants(&rule.target, 0, xx, mm, aa, matching);
-                let rest = self.count_matching_variants(wf_name, rule_n + 1, xx, mm, aa, rest);
-                matching + rest
-            }
-            True => self.count_matching_variants(&rule.target, 0, xx, mm, aa, ss),
-        }
+        matching + rest
     }
 }
 
@@ -225,39 +191,10 @@ fn part_1(filename: &str) -> u64 {
     let validator = Validator::new(workflows);
 
     lines
-        .map(Part::from_string)
-        .filter(|part| validator.check(part))
-        .map(|part| part.sum_fields())
+        .map(PartRange::parse_part)
+        .filter(|part| validator.count_matching("in", 0, *part) != 0)
+        .map(|part| part.sum())
         .sum()
-}
-
-struct PartitionResult {
-    matching: Option<(u64, u64)>,
-    rest: Option<(u64, u64)>,
-}
-fn partition((a, b): (u64, u64), c: Condition) -> PartitionResult {
-    match c {
-        LT(_, p) => {
-            let less = (a < p).then_some((a, p - 1));
-            let greater_or_equal = Some((p, b));
-            PartitionResult {
-                matching: less,
-                rest: greater_or_equal,
-            }
-        }
-        GT(_, p) => {
-            let less_or_equal = Some((a, p));
-            let greater = (p < b).then_some((p + 1, b));
-            PartitionResult {
-                matching: greater,
-                rest: less_or_equal,
-            }
-        }
-        True => PartitionResult {
-            matching: Some((a, b)),
-            rest: None,
-        },
-    }
 }
 
 fn part_2(filename: &str) -> u64 {
@@ -266,14 +203,9 @@ fn part_2(filename: &str) -> u64 {
         .map(Workflow::from_string)
         .collect_vec();
 
-    Validator::new(workflows).count_matching_variants(
-        "in",
-        0,
-        Some((1, 4000)),
-        Some((1, 4000)),
-        Some((1, 4000)),
-        Some((1, 4000)),
-    )
+    Validator::new(workflows).count_matching("in", 0, PartRange {
+        vals: [Some((1, 4000)); 4],
+    })
 }
 
 pub fn solution() -> Day<u64, u64> {
@@ -308,20 +240,5 @@ mod d19_tests {
 
         let res = solution.part_2.run_example(0);
         assert_eq!(167409079868000, res);
-    }
-
-    #[test]
-    fn test_partition() {
-        let (a, b) = (1, 10);
-        let c = LT(Field::M, 2);
-        let PartitionResult { matching, rest } = partition((a, b), c);
-        assert_eq!(Some((1, 1)), matching);
-        assert_eq!(Some((2, 10)), rest);
-
-        let (a, b) = (1, 10);
-        let c = LT(Field::M, 1);
-        let PartitionResult { matching, rest } = partition((a, b), c);
-        assert_eq!(None, matching);
-        assert_eq!(Some((1, 10)), rest);
     }
 }
