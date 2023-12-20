@@ -55,7 +55,7 @@ impl Command {
             '3' => U,
             _ => return None,
         };
-        
+
         Some(Self { dir, len })
     }
 }
@@ -140,7 +140,7 @@ pub fn solution() -> Day<usize, usize> {
 }
 
 #[cfg(test)]
-mod d17_tests {
+mod d18_tests {
     use super::*;
 
     #[test]

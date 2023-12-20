@@ -21,4 +21,5 @@ pub mod d15_lens_library;
 pub mod d16_the_floor_will_be_lava;
 pub mod d17_clumsy_crucible;
 pub mod d18_lavaduct_lagoon;
+pub mod d19_aplenty;
 pub mod utils;
