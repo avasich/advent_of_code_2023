@@ -34,32 +34,28 @@ impl<'a> Module<'a> {
         (name, Self { output, kind })
     }
 
-    fn update(&self, from: &'a str, pulse: Pulse) -> Option<Pulse> {
+    fn pulse(&self, src_name: &'a str, pulse: Pulse) -> Option<Pulse> {
         match &self.kind {
             FlipFlop(_) if matches!(pulse, Pulse::High) => None,
-            FlipFlop(is_on) => {
-                let was_on = is_on.replace_with(|on| !*on);
-                match !was_on {
-                    true => Some(Pulse::High),
-                    false => Some(Pulse::Low),
-                }
-            }
-            Endpoint(low_count) => {
-                // println!("endpoint hit from {from} with {pulse:?}");
-                if !matches!(pulse, Pulse::High) {
-                    low_count.replace_with(|count| *count + 1);
-                }
-                None
-            }
-            Broadcaster => Some(Pulse::Low),
+            FlipFlop(is_on) => match !is_on.replace_with(|on| !*on) {
+                true => Some(Pulse::High),
+                false => Some(Pulse::Low),
+            },
             Conjunction(inputs) => {
                 let inputs = &mut *inputs.borrow_mut();
-                inputs.insert(from, pulse);
+                inputs.insert(src_name, pulse);
                 match inputs.values().all(|p| matches!(p, Pulse::High)) {
                     true => Some(Pulse::Low),
                     false => Some(Pulse::High),
                 }
             }
+            Endpoint(low_count) => {
+                if matches!(pulse, Pulse::Low) {
+                    *low_count.borrow_mut() += 1;
+                }
+                None
+            }
+            Broadcaster => Some(Pulse::Low),
         }
     }
 
@@ -73,10 +69,13 @@ impl<'a> Module<'a> {
 
 #[derive(Debug)]
 enum ModuleKind<'a> {
-    Endpoint(RefCell<u32>), // low pulse hit counter
     Broadcaster,
-    FlipFlop(RefCell<bool>),                       // on/off
-    Conjunction(RefCell<HashMap<&'a str, Pulse>>), // input history
+    // low pulse hit counter
+    Endpoint(RefCell<u32>),
+    // on/off
+    FlipFlop(RefCell<bool>),
+    // input history
+    Conjunction(RefCell<HashMap<&'a str, Pulse>>),
 }
 
 struct System<'a> {
@@ -85,71 +84,57 @@ struct System<'a> {
 
 impl<'a> System<'a> {
     fn new(lines: &'a [String]) -> Self {
-        let mut modules: HashMap<&'a str, Module<'a>> =
-            lines.iter().map(|line| Module::from_string(line)).collect();
+        let mut modules: HashMap<&'a str, Module<'a>> = lines
+            .iter()
+            .map(String::as_str)
+            .map(Module::from_string)
+            .collect();
         let mut endpoints = vec![];
 
-        for (name, module) in &modules {
-            for &connection in &module.output {
-                match modules.get(connection) {
-                    None => endpoints.push((connection, Module::endpoint())),
-                    Some(module) => {
-                        if let Conjunction(inputs) = &module.kind {
-                            inputs.borrow_mut().insert(name, Pulse::Low);
-                        }
+        for (src_name, src_mod) in &modules {
+            for &dist_name in &src_mod.output {
+                match modules.get(dist_name).map(|dist_mod| &dist_mod.kind) {
+                    None => endpoints.push((dist_name, Module::endpoint())),
+                    Some(Conjunction(inputs)) => {
+                        inputs.borrow_mut().insert(src_name, Pulse::Low);
                     }
+                    _ => {}
                 }
             }
         }
 
-        endpoints.into_iter().for_each(|(name, module)| {
-            modules.insert(name, module);
-        });
+        modules.extend(endpoints);
 
         Self { modules }
     }
 
-    fn push_button(&self) -> (u64, u64) {
+    fn push_button(&self, count: u64, watch: &mut HashMap<&'a str, Option<u64>>) -> (u64, u64) {
         let mut pulse_queue = VecDeque::new();
         pulse_queue.push_back((Pulse::Low, "button", "broadcaster"));
 
-        let mut highs = 0;
         let mut lows = 0;
+        let mut highs = 0;
 
-        while let Some((pulse, source, dist)) = pulse_queue.pop_front() {
+        while let Some((pulse, src_name, dist_name)) = pulse_queue.pop_front() {
             match pulse {
                 Pulse::Low => lows += 1,
-                Pulse::High => highs += 1,
+                Pulse::High => {
+                    if let Some(None) = watch.get(src_name) {
+                        watch.insert(src_name, Some(count));
+                    }
+                    highs += 1;
+                }
             }
 
-            if let Some(module) = self.modules.get(dist) {
-                if let Some(pulse) = module.update(source, pulse) {
-                    module.output.iter().for_each(|out| {
-                        pulse_queue.push_back((pulse, dist, out));
-                    });
-                }
+            let dist_mod = self.modules.get(dist_name).unwrap();
+            if let Some(pulse) = dist_mod.pulse(src_name, pulse) {
+                dist_mod.output.iter().for_each(|out_name| {
+                    pulse_queue.push_back((pulse, dist_name, out_name));
+                });
             }
         }
 
         (lows, highs)
-    }
-
-    fn spam_rx(&self) -> Option<u64> {
-        let rx = self.modules.get("rx")?;
-        if let Endpoint(counter) = &rx.kind {
-            while *counter.borrow() == 0 {
-                self.push_button();
-            }
-            let a = (0..)
-                .inspect(|_| {
-                    self.push_button();
-                })
-                .find(|_| *counter.borrow() != 0)
-                .unwrap();
-            return Some(a);
-        }
-
-        Some(0)
     }
 
     #[allow(dead_code)]
@@ -164,16 +149,34 @@ fn part_1(filename: &str) -> u64 {
     let lines = crate::utils::read_lines(filename).collect_vec();
     let system = System::new(&lines);
     // system.print();
+    let mut map = HashMap::new();
     let (l, h) = (0..1000)
-        .map(|_| system.push_button())
-        .fold((0, 0), |acc, lh| (acc.0 + lh.0, acc.1 + lh.1));
+        .map(|_| system.push_button(0, &mut map))
+        .fold((0, 0), |acc, count| (acc.0 + count.0, acc.1 + count.1));
     l * h
 }
 
 fn part_2(filename: &str) -> u64 {
     let lines = crate::utils::read_lines(filename).collect_vec();
     let system = System::new(&lines);
-    system.spam_rx().unwrap()
+    let mut watch: HashMap<_, _> = vec!["nx", "sp", "cc", "jq"]
+        .into_iter()
+        .map(|name| (name, None))
+        .collect();
+
+    // yeah, but why?
+    for i in 1.. {
+        if watch.values().all(Option::is_some) {
+            break;
+        } else {
+            system.push_button(i, &mut watch);
+        }
+    }
+
+    watch
+        .values()
+        .flatten()
+        .fold(1, |acc, val| num::integer::lcm(acc, *val))
 }
 
 pub fn solution() -> Day<u64, u64> {
