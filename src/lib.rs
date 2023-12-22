@@ -23,4 +23,5 @@ pub mod d17_clumsy_crucible;
 pub mod d18_lavaduct_lagoon;
 pub mod d19_aplenty;
 pub mod d20_pulse_propagation;
+pub mod d21_step_counter;
 pub mod utils;
