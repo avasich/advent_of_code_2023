@@ -33,16 +33,16 @@ impl From<char> for Tile {
     }
 }
 
-enum Direction {
-    North,
-    West,
-    South,
-    East,
+enum Dir {
+    N,
+    W,
+    S,
+    E,
 }
 
 struct Board {
-    width: usize,
-    height: usize,
+    w: usize,
+    h: usize,
     tiles: RefCell<Vec<Tile>>,
     row_spans: Vec<Vec<(usize, usize)>>,
     col_spans: Vec<Vec<(usize, usize)>>,
@@ -52,8 +52,8 @@ impl Board {
     fn from_file(filename: &str) -> Self {
         let lines = crate::utils::read_lines(filename).collect_vec();
 
-        let width = lines[0].len();
-        let height = lines.len();
+        let w = lines[0].len();
+        let h = lines.len();
 
         let tiles = lines
             .iter()
@@ -77,61 +77,61 @@ impl Board {
                 .collect_vec()
         }
 
-        let horizontal_spans = tiles
-            .chunks(width)
-            .map(|row| free_spans(row.iter(), width))
+        let row_spans = tiles
+            .chunks(w)
+            .map(|row| free_spans(row.iter(), w))
             .collect_vec();
 
-        let vertical_spans = (0..width)
-            .map(|x| tiles.iter().skip(x).step_by(width))
-            .map(|col| free_spans(col, height))
+        let col_spans = (0..w)
+            .map(|x| tiles.iter().skip(x).step_by(w))
+            .map(|col| free_spans(col, h))
             .collect_vec();
 
         Self {
-            width,
-            height,
+            w,
+            h,
             tiles: RefCell::new(tiles),
-            row_spans: horizontal_spans,
-            col_spans: vertical_spans,
+            row_spans,
+            col_spans,
         }
     }
 
     fn fill_col(&self, col: usize, y1: usize, y2: usize, tile: Tile) {
         let mut tiles = self.tiles.borrow_mut();
-        let i1 = col + y1 * self.width;
-        let i2 = col + y2 * self.width;
-        (i1..i2).step_by(self.width).for_each(|i| tiles[i] = tile);
+        let i1 = col + y1 * self.w;
+        let i2 = col + y2 * self.w;
+        (i1..i2).step_by(self.w).for_each(|i| tiles[i] = tile);
     }
 
     fn fill_row(&self, row: usize, x1: usize, x2: usize, tile: Tile) {
-        let i1 = x1 + row * self.width;
-        let i2 = x2 + row * self.width;
+        let i1 = x1 + row * self.w;
+        let i2 = x2 + row * self.w;
         self.tiles.borrow_mut()[i1..i2].fill(tile);
     }
 
     fn count_in_col(&self, col: usize, y1: usize, y2: usize, tile: Tile) -> usize {
         let tiles = self.tiles.borrow();
-        let i1 = col + y1 * self.width;
-        let i2 = col + y2 * self.width;
+        let i1 = col + y1 * self.w;
+        let i2 = col + y2 * self.w;
         (i1..i2)
-            .step_by(self.width)
+            .step_by(self.w)
             .filter(|i| tiles[*i] == tile)
             .count()
     }
 
     fn count_in_row(&self, row: usize, x1: usize, x2: usize, tile: Tile) -> usize {
-        let i1 = x1 + row * self.width;
-        let i2 = x2 + row * self.width;
+        let i1 = x1 + row * self.w;
+        let i2 = x2 + row * self.w;
         self.tiles.borrow()[i1..i2]
             .iter()
             .filter(|t| **t == tile)
             .count()
     }
 
-    fn tilt(&self, dir: Direction) -> &Self {
+    fn tilt(&self, dir: Dir) -> &Self {
         match dir {
-            Direction::North => {
-                for col in 0..self.width {
+            Dir::N => {
+                for col in 0..self.w {
                     let spans = &self.col_spans[col];
                     for &(y1, y2) in spans {
                         let rc = self.count_in_col(col, y1, y2, Tile::Round);
@@ -140,8 +140,8 @@ impl Board {
                     }
                 }
             }
-            Direction::West => {
-                for row in 0..self.height {
+            Dir::W => {
+                for row in 0..self.h {
                     let spans = &self.row_spans[row];
                     for &(x1, x2) in spans {
                         let rc = self.count_in_row(row, x1, x2, Tile::Round);
@@ -150,8 +150,8 @@ impl Board {
                     }
                 }
             }
-            Direction::South => {
-                for col in 0..self.width {
+            Dir::S => {
+                for col in 0..self.w {
                     let spans = &self.col_spans[col];
                     for &(y1, y2) in spans {
                         let rc = self.count_in_col(col, y1, y2, Tile::Round);
@@ -160,8 +160,8 @@ impl Board {
                     }
                 }
             }
-            Direction::East => {
-                for row in 0..self.height {
+            Dir::E => {
+                for row in 0..self.h {
                     let spans = &self.row_spans[row];
                     for &(x1, x2) in spans {
                         let rc = self.count_in_row(row, x1, x2, Tile::Round);
@@ -176,10 +176,7 @@ impl Board {
     }
 
     fn rotate(&self) {
-        self.tilt(Direction::North)
-            .tilt(Direction::West)
-            .tilt(Direction::South)
-            .tilt(Direction::East);
+        self.tilt(Dir::N).tilt(Dir::W).tilt(Dir::S).tilt(Dir::E);
     }
 
     fn rotate_n(&self, n: usize) {
@@ -204,16 +201,16 @@ impl Board {
     }
 
     fn weight(&self) -> u64 {
-        (0..self.height)
-            .map(|row| (row, self.count_in_row(row, 0, self.width, Tile::Round)))
-            .map(|(row, count)| (self.height - row) * count)
+        (0..self.h)
+            .map(|row| (row, self.count_in_row(row, 0, self.w, Tile::Round)))
+            .map(|(row, count)| (self.h - row) * count)
             .sum::<usize>() as u64
     }
 
     #[allow(dead_code)]
     fn print(&self) {
-        println!("{}x{}", self.width, self.height);
-        for row in self.tiles.borrow().chunks(self.width) {
+        println!("{}x{}", self.w, self.h);
+        for row in self.tiles.borrow().chunks(self.w) {
             row.iter().for_each(|tile| print!("{tile}"));
             println!()
         }
@@ -233,7 +230,7 @@ impl Board {
 
 fn part_1(filename: &str) -> u64 {
     let board = Board::from_file(filename);
-    board.tilt(Direction::North);
+    board.tilt(Dir::N);
     board.weight()
 }
 

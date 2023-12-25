@@ -1,17 +1,17 @@
 use itertools::Itertools;
-use Direction::*;
+use Dir::*;
 
 use crate::utils::{Day, Task};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Direction {
+enum Dir {
     U,
     L,
     D,
     R,
 }
 
-impl Direction {
+impl Dir {
     fn reverse(&self) -> Self {
         match self {
             U => D,
@@ -24,7 +24,7 @@ impl Direction {
 
 #[derive(Debug)]
 struct Command {
-    dir: Direction,
+    dir: Dir,
     len: isize,
 }
 

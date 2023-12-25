@@ -17,8 +17,8 @@ enum Pipe {
 }
 
 impl Pipe {
-    fn connected_to(&self, d: Direction) -> bool {
-        use Direction::*;
+    fn connected_to(&self, d: Dir) -> bool {
+        use Dir::*;
         use Pipe::*;
 
         matches!(
@@ -48,20 +48,20 @@ impl From<char> for Pipe {
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
-enum Direction {
+enum Dir {
     N,
-    S,
     W,
+    S,
     E,
 }
 
-impl Direction {
+impl Dir {
     fn rev(&self) -> Self {
         match self {
-            Direction::N => Direction::S,
-            Direction::S => Direction::N,
-            Direction::W => Direction::E,
-            Direction::E => Direction::W,
+            Dir::N => Dir::S,
+            Dir::W => Dir::E,
+            Dir::S => Dir::N,
+            Dir::E => Dir::W,
         }
     }
 }
@@ -97,28 +97,25 @@ impl Maze {
         self.map[y][x]
     }
 
-    fn adjacent_to(&self, x: usize, y: usize, d: Direction) -> Option<(usize, usize)> {
+    fn adjacent_to(&self, x: usize, y: usize, d: Dir) -> Option<(usize, usize)> {
         match d {
-            Direction::N if y != 0 => Some((x, y - 1)),
-            Direction::S if y + 1 < self.h => Some((x, y + 1)),
-            Direction::W if x != 0 => Some((x - 1, y)),
-            Direction::E if x + 1 < self.w => Some((x + 1, y)),
+            Dir::N if y > 0 => Some((x, y - 1)),
+            Dir::W if x > 0 => Some((x - 1, y)),
+            Dir::S if y + 1 < self.h => Some((x, y + 1)),
+            Dir::E if x + 1 < self.w => Some((x + 1, y)),
             _ => None,
         }
     }
 
-    fn check_connection(&self, x: usize, y: usize, d: Direction) -> Option<(usize, usize)> {
+    fn check_connection(&self, x: usize, y: usize, d: Dir) -> Option<(usize, usize)> {
         let (x1, y1) = self.adjacent_to(x, y, d)?;
 
-        if self.get(x, y).connected_to(d) && self.get(x1, y1).connected_to(d.rev()) {
-            Some((x1, y1))
-        } else {
-            None
-        }
+        (self.get(x, y).connected_to(d) && self.get(x1, y1).connected_to(d.rev()))
+            .then_some((x1, y1))
     }
 
     fn loop_tiles(&self) -> Vec<(usize, usize)> {
-        let dirs = [Direction::N, Direction::W, Direction::S, Direction::E];
+        let dirs = [Dir::N, Dir::W, Dir::S, Dir::E];
 
         let (mut x, mut y) = self.start_pos;
         let mut from = *dirs.last().unwrap();
@@ -163,7 +160,7 @@ fn part_2(filename: &str) -> usize {
     let mut tiles_inside = 0;
 
     for y in 0..maze.h {
-        use Direction::*;
+        use Dir::*;
 
         let mut is_inside = false;
         let mut from_south = false;

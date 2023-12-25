@@ -5,16 +5,16 @@ use itertools::Itertools;
 use crate::utils::{Day, Task};
 
 #[derive(Copy, Clone)]
-enum Direction {
+enum Dir {
     L,
     R,
 }
 
-impl From<char> for Direction {
+impl From<char> for Dir {
     fn from(c: char) -> Self {
         match c {
-            'L' => Direction::L,
-            'R' => Direction::R,
+            'L' => Dir::L,
+            'R' => Dir::R,
             _ => unreachable!(),
         }
     }
@@ -32,17 +32,17 @@ impl Connection {
         )
     }
 
-    fn turn(&self, direction: Direction) -> &str {
+    fn turn(&self, direction: Dir) -> &str {
         match direction {
-            Direction::L => &self.0,
-            Direction::R => &self.1,
+            Dir::L => &self.0,
+            Dir::R => &self.1,
         }
     }
 }
 
-fn parse_file(filename: &str) -> (Vec<Direction>, HashMap<String, Connection>) {
+fn parse_file(filename: &str) -> (Vec<Dir>, HashMap<String, Connection>) {
     let mut lines = crate::utils::read_lines(filename);
-    let directions = lines.next().unwrap().chars().map(Direction::from).collect();
+    let directions = lines.next().unwrap().chars().map(Dir::from).collect();
 
     let nodes = lines
         .skip(1)

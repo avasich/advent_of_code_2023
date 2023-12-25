@@ -1,12 +1,8 @@
 use itertools::Itertools;
+use Dir::*;
+use Tile::*;
 
-use crate::{
-    d16_the_floor_will_be_lava::{
-        Direction::{Down, Left, Right, Up},
-        Tile::{Empty, MirrorL, MirrorR, SplitterH, SplitterV},
-    },
-    utils::{Day, Task},
-};
+use crate::utils::{Day, Task};
 
 enum Tile {
     Empty,
@@ -33,21 +29,22 @@ impl From<char> for Tile {
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
-enum Direction {
-    Up = 1u8,
-    Left = 2,
-    Down = 4,
-    Right = 8,
+enum Dir {
+    U = 1u8,
+    L = 2,
+    D = 4,
+    R = 8,
 }
 
 #[derive(Default, Copy, Clone)]
 struct Beams(u8);
+
 impl Beams {
-    fn has_beam_going(&self, direction: Direction) -> bool {
+    fn has_beam_going(&self, direction: Dir) -> bool {
         self.0 & direction as u8 != 0
     }
 
-    fn add_beam(&mut self, direction: Direction) {
+    fn add_beam(&mut self, direction: Dir) {
         self.0 |= direction as u8;
     }
 
@@ -69,48 +66,37 @@ fn print_lit(beams: &[Beams], width: usize) {
 
 struct Contraption {
     tiles: Vec<Tile>,
-    width: usize,
-    height: usize,
+    w: usize,
+    h: usize,
 }
 
 impl Contraption {
-    fn energize_tiles(&self, start_x: usize, start_y: usize, start_dir: Direction) -> Vec<Beams> {
-        let step = |x: usize, y: usize, dir| match dir {
-            Left if x == 0 => None,
-            Left => Some((x - 1, y)),
-            Right if x + 1 == self.width => None,
-            Right => Some((x + 1, y)),
-            Up if y == 0 => None,
-            Up => Some((x, y - 1)),
-            Down if y + 1 == self.height => None,
-            Down => Some((x, y + 1)),
-        };
-
+    fn energize_tiles(&self, start_x: usize, start_y: usize, start_dir: Dir) -> Vec<Beams> {
         let mut beams = vec![Beams::default(); self.tiles.len()];
         let mut origins = vec![(start_x, start_y, start_dir)];
 
         while let Some((x, y, dir)) = origins.pop() {
             let (mut x, mut y, mut dir) = (x, y, dir);
 
-            while !beams[x + y * self.width].has_beam_going(dir) {
-                beams[x + y * self.width].add_beam(dir);
+            while !beams[x + y * self.w].has_beam_going(dir) {
+                beams[x + y * self.w].add_beam(dir);
                 // MirrorL  /
                 // MirrorR  \
-                let (new_xy, new_dir) = match (&self.tiles[x + y * self.width], dir) {
-                    (Empty, _) | (SplitterV, Up | Down) | (SplitterH, Left | Right) => {
-                        (step(x, y, dir), dir)
+                let (new_xy, new_dir) = match (&self.tiles[x + y * self.w], dir) {
+                    (Empty, _) | (SplitterV, U | D) | (SplitterH, L | R) => {
+                        (self.try_step(x, y, dir), dir)
                     }
-                    (MirrorL, Up) | (MirrorR, Down) => (step(x, y, Right), Right),
-                    (MirrorL, Down) | (MirrorR, Up) => (step(x, y, Left), Left),
-                    (MirrorL, Left) | (MirrorR, Right) => (step(x, y, Down), Down),
-                    (MirrorL, Right) | (MirrorR, Left) => (step(x, y, Up), Up),
-                    (SplitterV, Left | Right) => {
-                        origins.push((x, y, Down));
-                        (step(x, y, Up), Up)
+                    (MirrorL, U) | (MirrorR, D) => (self.try_step(x, y, R), R),
+                    (MirrorL, D) | (MirrorR, U) => (self.try_step(x, y, L), L),
+                    (MirrorL, L) | (MirrorR, R) => (self.try_step(x, y, D), D),
+                    (MirrorL, R) | (MirrorR, L) => (self.try_step(x, y, U), U),
+                    (SplitterV, L | R) => {
+                        origins.push((x, y, D));
+                        (self.try_step(x, y, U), U)
                     }
-                    (SplitterH, Up | Down) => {
-                        origins.push((x, y, Left));
-                        (step(x, y, Right), Right)
+                    (SplitterH, U | D) => {
+                        origins.push((x, y, L));
+                        (self.try_step(x, y, R), R)
                     }
                 };
 
@@ -127,7 +113,17 @@ impl Contraption {
         beams
     }
 
-    fn count_energized_tiles(&self, start_x: usize, start_y: usize, start_dir: Direction) -> usize {
+    fn try_step(&self, x: usize, y: usize, dir: Dir) -> Option<(usize, usize)> {
+        match dir {
+            U if y > 0 => Some((x, y - 1)),
+            L if x > 0 => Some((x - 1, y)),
+            D if y + 1 < self.h => Some((x, y + 1)),
+            R if x + 1 < self.w => Some((x + 1, y)),
+            _ => None,
+        }
+    }
+
+    fn count_energized_tiles(&self, start_x: usize, start_y: usize, start_dir: Dir) -> usize {
         self.energize_tiles(start_x, start_y, start_dir)
             .iter()
             .filter(|b| b.has_beam())
@@ -135,19 +131,19 @@ impl Contraption {
     }
 
     fn max_energized(&self) -> usize {
-        let max_vertical = (0..self.width)
+        let max_vertical = (0..self.w)
             .map(|col| {
-                let top_down = self.count_energized_tiles(col, 0, Down);
-                let bottom_up = self.count_energized_tiles(col, self.height - 1, Up);
+                let top_down = self.count_energized_tiles(col, 0, D);
+                let bottom_up = self.count_energized_tiles(col, self.h - 1, U);
                 top_down.max(bottom_up)
             })
             .max()
             .unwrap();
 
-        let max_horizontal = (0..self.height)
+        let max_horizontal = (0..self.h)
             .map(|row| {
-                let left_right = self.count_energized_tiles(0, row, Right);
-                let right_left = self.count_energized_tiles(self.width - 1, row, Left);
+                let left_right = self.count_energized_tiles(0, row, R);
+                let right_left = self.count_energized_tiles(self.w - 1, row, L);
                 left_right.max(right_left)
             })
             .max()
@@ -169,8 +165,8 @@ impl Contraption {
 
         Self {
             tiles,
-            width,
-            height,
+            w: width,
+            h: height,
         }
     }
 }
@@ -178,7 +174,7 @@ impl Contraption {
 fn part_1(filename: &str) -> usize {
     let contraption = Contraption::from_file(filename);
 
-    contraption.count_energized_tiles(0, 0, Right)
+    contraption.count_energized_tiles(0, 0, R)
 }
 
 fn part_2(filename: &str) -> usize {

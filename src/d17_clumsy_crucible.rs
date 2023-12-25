@@ -4,34 +4,34 @@ use std::{
 };
 
 use itertools::Itertools;
-use Direction::*;
+use Dir::*;
 
 use crate::utils::{Day, Task};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
-enum Direction {
-    Up,
-    Left,
-    Down,
-    Right,
+enum Dir {
+    U,
+    L,
+    D,
+    R,
 }
 
-impl Direction {
+impl Dir {
     fn turn_right(&self) -> Self {
         match self {
-            Up => Right,
-            Left => Up,
-            Down => Left,
-            Right => Down,
+            U => R,
+            L => U,
+            D => L,
+            R => D,
         }
     }
 
     fn turn_left(&self) -> Self {
         match self {
-            Up => Left,
-            Left => Down,
-            Down => Right,
-            Right => Up,
+            U => L,
+            L => D,
+            D => R,
+            R => U,
         }
     }
 }
@@ -50,16 +50,13 @@ impl Point {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 struct StepCounter<const MIN_STEPS: usize, const MAX_STEPS: usize> {
-    direction: Direction,
+    dir: Dir,
     count: usize,
 }
 
 impl<const MIN_STEPS: usize, const MAX_STEPS: usize> StepCounter<MIN_STEPS, MAX_STEPS> {
-    fn new(direction: Direction) -> Self {
-        Self {
-            direction,
-            count: 1,
-        }
+    fn new(dir: Dir) -> Self {
+        Self { dir, count: 1 }
     }
 
     fn can_advance(&self) -> bool {
@@ -72,21 +69,21 @@ impl<const MIN_STEPS: usize, const MAX_STEPS: usize> StepCounter<MIN_STEPS, MAX_
 
     fn turn_left(&self) -> Self {
         Self {
-            direction: self.direction.turn_left(),
+            dir: self.dir.turn_left(),
             count: 1,
         }
     }
 
     fn turn_right(&self) -> Self {
         Self {
-            direction: self.direction.turn_right(),
+            dir: self.dir.turn_right(),
             count: 1,
         }
     }
 
     fn advance(&self) -> Self {
         Self {
-            direction: self.direction,
+            dir: self.dir,
             count: self.count + 1,
         }
     }
@@ -94,49 +91,42 @@ impl<const MIN_STEPS: usize, const MAX_STEPS: usize> StepCounter<MIN_STEPS, MAX_
 
 impl<const M: usize, const N: usize> std::fmt::Display for StepCounter<M, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let d = match self.direction {
-            Up => 'U',
-            Left => 'L',
-            Down => 'D',
-            Right => 'R',
+        let d = match self.dir {
+            U => 'U',
+            L => 'L',
+            D => 'D',
+            R => 'R',
         };
         write!(f, "{}:{}", d, self.count)
     }
 }
 
 struct LossMap {
-    width: usize,
-    height: usize,
+    w: usize,
+    h: usize,
     tiles: Vec<u32>,
 }
 
 impl LossMap {
     fn from_file(filename: &str) -> Self {
         let lines = crate::utils::read_lines(filename).collect_vec();
-        let width = lines[0].len();
-        let height = lines.len();
+        let w = lines[0].len();
+        let h = lines.len();
         let tiles = lines
             .iter()
             .flat_map(|line| line.chars())
             .flat_map(|c| c.to_digit(10))
             .collect_vec();
-        Self {
-            width,
-            height,
-            tiles,
-        }
+        Self { w, h, tiles }
     }
 
     fn min_loss<const MIN_STEPS: usize, const MAX_STEPS: usize>(&self) -> u32 {
-        let make_step = |Point { x, y }, dir| match dir {
-            Left if x == 0 => None,
-            Left => Some(Point::new(x - 1, y)),
-            Right if x + 1 == self.width => None,
-            Right => Some(Point::new(x + 1, y)),
-            Up if y == 0 => None,
-            Up => Some(Point::new(x, y - 1)),
-            Down if y + 1 == self.height => None,
-            Down => Some(Point::new(x, y + 1)),
+        let make_step = |Point { x, y }, dir: Dir| match dir {
+            U if y > 0 => Some(Point::new(x, y - 1)),
+            L if x > 0 => Some(Point::new(x - 1, y)),
+            D if y + 1 < self.h => Some(Point::new(x, y + 1)),
+            R if x + 1 < self.w => Some(Point::new(x + 1, y)),
+            _ => None,
         };
 
         let mut cache =
@@ -144,19 +134,19 @@ impl LossMap {
         let mut result = vec![u32::MAX; self.tiles.len()];
 
         let mut moves = VecDeque::from([
-            (Point::new(0, 1), StepCounter::new(Down), 0),
-            (Point::new(1, 0), StepCounter::new(Right), 0),
+            (Point::new(0, 1), StepCounter::new(D), 0),
+            (Point::new(1, 0), StepCounter::new(R), 0),
         ]);
 
         while let Some((p, steps, prev)) = moves.pop_front() {
-            let curr = prev + self.tiles[p.x + p.y * self.width];
-            let tile_cache = &mut cache[p.x + p.y * self.width];
+            let curr = prev + self.tiles[p.x + p.y * self.w];
+            let tile_cache = &mut cache[p.x + p.y * self.w];
 
             let mut make_move = |st| match tile_cache.get(&st) {
                 Some(val) if *val <= curr => {}
                 _ => {
                     tile_cache.insert(st, curr);
-                    if let Some(point) = make_step(p, st.direction) {
+                    if let Some(point) = make_step(p, st.dir) {
                         moves.push_back((point, st, curr));
                     }
                 }
@@ -170,8 +160,8 @@ impl LossMap {
                 make_move(steps.turn_right());
                 make_move(steps.turn_left());
 
-                if result[p.x + p.y * self.width] > curr {
-                    result[p.x + p.y * self.width] = curr;
+                if result[p.x + p.y * self.w] > curr {
+                    result[p.x + p.y * self.w] = curr;
                 }
             }
         }

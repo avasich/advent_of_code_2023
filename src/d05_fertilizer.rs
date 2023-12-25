@@ -198,21 +198,6 @@ pub fn lowest_location_range(filename: &str) -> u64 {
         min = min.min(m);
     }
     min
-    // let (seeds, mappings) = parse_file(filename);
-    // let seeds: Vec<_> = seeds
-    //     .chunks(2)
-    //     .map(|pair| MappingRange::new(pair[0], pair[0], pair[1]))
-    //     .collect();
-    // let seeds = Mapping { ranges: seeds };
-    //
-    // mappings
-    //     .iter()
-    //     .fold(seeds, |prev, next| prev.collapse_mappings(next))
-    //     .ranges
-    //     .iter()
-    //     .map(|r| r.dst)
-    //     .min()
-    //     .unwrap()
 }
 
 pub fn solution() -> Day<u64, u64> {

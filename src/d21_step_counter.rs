@@ -5,12 +5,12 @@ use std::{
 
 use itertools::Itertools;
 use num::Integer;
-use Direction::*;
+use Dir::*;
 
 use crate::utils::{Day, Task};
 
 #[derive(Debug, Copy, Clone)]
-enum Direction {
+enum Dir {
     U,
     L,
     D,
@@ -19,16 +19,16 @@ enum Direction {
 
 struct Field {
     map: Vec<bool>,
-    width: usize,
-    height: usize,
+    w: usize,
+    h: usize,
     start: (usize, usize),
 }
 
 impl Field {
     fn new(filename: &str) -> Self {
         let lines = crate::utils::read_lines(filename).collect_vec();
-        let width = lines[0].len();
-        let height = lines.len();
+        let w = lines[0].len();
+        let h = lines.len();
         let mut start = 0;
         let map = lines
             .iter()
@@ -41,36 +41,28 @@ impl Field {
             })
             .map(|(_, c)| c != '#')
             .collect_vec();
-        let start = start.div_rem(&width);
-        Self {
-            map,
-            width,
-            height,
-            start,
-        }
+        let start = start.div_rem(&w);
+        Self { map, w, h, start }
     }
 
-    fn steps(&self, steps_left: usize, starts: &[(usize, usize)]) -> usize {
+    fn steps(&self, target_steps: usize, starts: &[(usize, usize)]) -> usize {
         let mut visited = HashMap::new();
         let mut step_queue = VecDeque::new();
-        step_queue.extend(starts.iter().map(|start| (Some(*start), steps_left)));
+        step_queue.extend(starts.iter().map(|start| (*start, target_steps)));
 
         while let Some((xy, steps_left)) = step_queue.pop_front() {
-            if xy.is_none() {
-                continue;
-            }
-
-            let xy = xy.unwrap();
             let can_reach = steps_left % 2 == 0;
 
             if visited.insert(xy, can_reach).is_some() || steps_left == 0 {
                 continue;
             }
 
-            step_queue.push_back((self.try_step(xy, L), steps_left - 1));
-            step_queue.push_back((self.try_step(xy, R), steps_left - 1));
-            step_queue.push_back((self.try_step(xy, U), steps_left - 1));
-            step_queue.push_back((self.try_step(xy, D), steps_left - 1));
+            step_queue.extend(
+                [U, L, D, R]
+                    .into_iter()
+                    .flat_map(|dir| self.try_step(xy, dir))
+                    .map(|xy| (xy, steps_left - 1)),
+            );
         }
         visited.values().filter(|v| **v).count()
     }
@@ -78,14 +70,14 @@ impl Field {
     #[allow(dead_code, clippy::type_complexity)]
     fn step_wrap_dumb(
         &self,
-        steps_left: usize,
+        target_steps: usize,
         px_r: RangeInclusive<isize>,
         py_r: RangeInclusive<isize>,
     ) -> HashMap<((usize, usize), (isize, isize)), usize> {
         let mut visited = HashMap::<((usize, usize), (isize, isize)), usize>::new();
         let mut step_queue = VecDeque::new();
         let patch = (0, 0);
-        step_queue.push_back((Some((self.start, patch)), steps_left));
+        step_queue.push_back((Some((self.start, patch)), target_steps));
 
         while let Some((point, steps_left)) = step_queue.pop_front() {
             if point.is_none() {
@@ -110,23 +102,23 @@ impl Field {
                 continue;
             }
 
-            step_queue.push_back((self.try_step_cycle(xy, patch, U), steps_left - 1));
-            step_queue.push_back((self.try_step_cycle(xy, patch, D), steps_left - 1));
-            step_queue.push_back((self.try_step_cycle(xy, patch, L), steps_left - 1));
-            step_queue.push_back((self.try_step_cycle(xy, patch, R), steps_left - 1));
+            step_queue.push_back((self.try_step_wrap(xy, patch, U), steps_left - 1));
+            step_queue.push_back((self.try_step_wrap(xy, patch, D), steps_left - 1));
+            step_queue.push_back((self.try_step_wrap(xy, patch, L), steps_left - 1));
+            step_queue.push_back((self.try_step_wrap(xy, patch, R), steps_left - 1));
         }
         visited
     }
 
     fn step_wrap(&self, target_steps: usize) -> Vec<isize> {
-        let width = self.width as isize;
-        let height = self.height as isize;
+        let w = self.w as isize;
+        let h = self.h as isize;
 
         let mut visited = HashMap::<(isize, isize), usize>::new();
         let mut border = HashSet::<(isize, isize)>::new();
 
         border.insert((self.start.0 as isize, self.start.1 as isize));
-        let r = target_steps % self.width;
+        let r = target_steps % self.w;
 
         let mut xs = vec![];
 
@@ -137,14 +129,14 @@ impl Field {
                 visited.insert((x, y), step % 2);
                 for (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
                     let (x1, y1) = (x + dx, y + dy);
-                    let xm = x1.rem_euclid(width) as usize;
-                    let ym = y1.rem_euclid(height) as usize;
-                    if self.map[xm + ym * self.width] && !visited.contains_key(&(x1, y1)) {
+                    let xm = x1.rem_euclid(w) as usize;
+                    let ym = y1.rem_euclid(h) as usize;
+                    if self.map[xm + ym * self.w] && !visited.contains_key(&(x1, y1)) {
                         new_border.insert((x1, y1));
                     }
                 }
             }
-            if (step + r) % self.width == 0 {
+            if (step + r) % self.w == 0 {
                 let already_visited = visited
                     .iter()
                     .filter(|(_, parity)| **parity == step % 2)
@@ -163,35 +155,42 @@ impl Field {
     }
 
     fn get(&self, x: usize, y: usize) -> bool {
-        self.map[x + y * self.width]
+        self.map[x + y * self.w]
     }
 
-    fn try_step(&self, (x, y): (usize, usize), dir: Direction) -> Option<(usize, usize)> {
+    fn try_step(&self, (x, y): (usize, usize), dir: Dir) -> Option<(usize, usize)> {
         match dir {
-            U => (y != 0 && self.get(x, y - 1)).then(|| (x, y - 1)),
-            D => (y + 1 != self.height && self.get(x, y + 1)).then(|| (x, y + 1)),
-            L => (x != 0 && self.get(x - 1, y)).then(|| (x - 1, y)),
-            R => (x + 1 != self.width && self.get(x + 1, y)).then(|| (x + 1, y)),
+            U if y > 0 => Some((x, y - 1)),
+            L if x > 0 => Some((x - 1, y)),
+            D if y + 1 < self.h => Some((x, y + 1)),
+            R if x + 1 < self.w => Some((x + 1, y)),
+            _ => None,
         }
+        .filter(|&(x, y)| self.get(x, y))
     }
 
-    fn try_step_cycle(
+    fn try_step_wrap(
         &self,
         (x, y): (usize, usize),
         (px, py): (isize, isize),
-        dir: Direction,
+        dir: Dir,
     ) -> Option<((usize, usize), (isize, isize))> {
-        let ((x, y), pxy) = match dir {
-            U if y > 0 => ((x, y - 1), (px, py)),
-            U => ((x, self.height - 1), (px, py - 1)),
-            D if y + 1 < self.height => ((x, y + 1), (px, py)),
-            D => ((x, 0), (px, py + 1)),
-            L if x > 0 => ((x - 1, y), (px, py)),
-            L => ((self.width - 1, y), (px - 1, py)),
-            R if x + 1 < self.width => ((x + 1, y), (px, py)),
-            R => ((0, y), (px + 1, py)),
+        let (xy, pxy) = match dir {
+            U => (y > 0)
+                .then(|| ((x, y - 1), (px, py)))
+                .unwrap_or_else(|| ((x, self.h - 1), (px, py - 1))),
+            L => (x > 0)
+                .then(|| ((x - 1, y), (px, py)))
+                .unwrap_or_else(|| ((self.w - 1, y), (px - 1, py))),
+            D => (y + 1 < self.h)
+                .then(|| ((x, y + 1), (px, py)))
+                .unwrap_or_else(|| ((x, 0), (px, py + 1))),
+            R => (x + 1 < self.w)
+                .then(|| ((x + 1, y), (px, py)))
+                .unwrap_or_else(|| ((0, y), (px + 1, py))),
         };
-        self.get(x, y).then_some(((x, y), pxy))
+
+        self.get(xy.0, xy.1).then_some((xy, pxy))
     }
 }
 
@@ -207,7 +206,7 @@ fn part_2(filename: &str, target_steps: usize) -> usize {
     let a = (vs[2] - 2 * vs[1] + vs[0]) / 2;
     let b = vs[1] - vs[0] - 3 * a;
     let c = vs[0] - b - a;
-    let n = 1 + (target_steps / field.width) as isize;
+    let n = 1 + (target_steps / field.w) as isize;
 
     (a * n * n + b * n + c) as usize
 }
