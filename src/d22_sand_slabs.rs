@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::{
     collections::{HashSet, VecDeque},
     str::FromStr,
@@ -19,10 +17,6 @@ struct Point {
 impl Point {
     fn new(x: i32, y: i32, z: i32) -> Self {
         Self { x, y, z }
-    }
-
-    fn cross_product_xy(&self, other: &Point) -> i32 {
-        self.x * other.y - self.y * other.x
     }
 }
 
@@ -128,15 +122,15 @@ fn part_2(filename: &str) -> u32 {
         let mut affected = VecDeque::from_iter(supports[i].iter());
         let mut fallen = HashSet::from([i]);
 
-        while let Some(j) = affected.pop_front() {
-            let has_more_supports = supporters[*j].difference(&fallen).count() > 0;
+        while let Some(&j) = affected.pop_front() {
+            let has_more_supports = supporters[j].difference(&fallen).count() > 0;
 
             if has_more_supports {
                 continue;
             }
 
-            fallen.insert(*j);
-            affected.extend(supports[*j].iter());
+            fallen.insert(j);
+            affected.extend(supports[j].iter());
         }
 
         bricks_on_top[i] = fallen.len() - 1;

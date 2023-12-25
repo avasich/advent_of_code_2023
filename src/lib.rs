@@ -26,4 +26,5 @@ pub mod d19_aplenty;
 pub mod d20_pulse_propagation;
 pub mod d21_step_counter;
 pub mod d22_sand_slabs;
+pub mod d23_a_long_walk;
 pub mod utils;
