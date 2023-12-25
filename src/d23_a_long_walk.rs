@@ -1,4 +1,7 @@
-use std::{cell::RefCell, collections::HashSet, fmt::Formatter, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Formatter,
+};
 
 use itertools::Itertools;
 
@@ -24,6 +27,8 @@ enum Tile {
     W,
     /// traversed
     X,
+    /// node
+    N,
 }
 
 impl Tile {
@@ -56,33 +61,8 @@ impl std::fmt::Display for Tile {
             Tile::E => write!(f, "."),
             Tile::W => write!(f, "#"),
             Tile::X => write!(f, "x"),
+            Tile::N => write!(f, "N"),
         }
-    }
-}
-
-struct Node {
-    xy: (usize, usize),
-    prev: Option<Rc<RefCell<Node>>>,
-    children: usize,
-}
-
-impl Node {
-    fn new(xy: (usize, usize)) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self {
-            xy,
-            prev: None,
-            children: 0,
-        }))
-    }
-
-    fn attach(xy: (usize, usize), other: &Rc<RefCell<Self>>) -> Rc<RefCell<Self>> {
-        let node = Self::new(xy);
-        node.borrow_mut().prev = Some(Rc::clone(other));
-        node
-    }
-
-    fn remove_child(&mut self) {
-        self.children -= 1;
     }
 }
 
@@ -144,56 +124,83 @@ impl Labyrinth {
             .max()
     }
 
-    fn traverse_ignore_slope(&mut self) -> usize {
-        let mut res = 0;
-
-        let mut stack = vec![(Node::new(self.start), 0)];
-        let mut visited = HashSet::new();
-
-        fn unwind(mut node: Rc<RefCell<Node>>, visited: &mut HashSet<(usize, usize)>) {
-            while node.borrow().children == 0 {
-                visited.remove(&node.borrow().xy);
-                match &node.clone().borrow().prev {
-                    None => break,
-                    Some(prev) => {
-                        prev.borrow_mut().remove_child();
-                        node = prev.clone();
-                    }
-                }
-            }
+    #[allow(clippy::type_complexity)]
+    fn traverse_nodes(
+        node: (usize, usize),
+        edges: &HashMap<(usize, usize), Vec<((usize, usize), usize)>>,
+        visited: &mut HashSet<(usize, usize)>,
+        target: (usize, usize),
+    ) -> Option<usize> {
+        if node == target {
+            return Some(0);
         }
 
-        while let Some((node, len)) = stack.pop() {
-            let (x, y) = node.borrow().xy;
-            if (x, y) == self.exit {
-                if len > res {
-                    res = len;
-                }
-                unwind(node, &mut visited);
+        let mut results = vec![];
+        for &(next, len) in edges.get(&node).unwrap() {
+            if visited.contains(&next) {
                 continue;
             }
+            visited.insert(next);
+            let next_len =
+                Self::traverse_nodes(next, edges, visited, target).map(|next_len| next_len + len);
+            results.push(next_len);
+            visited.remove(&next);
+        }
 
-            let to_check = [Dir::U, Dir::L, Dir::D, Dir::R]
-                .into_iter()
-                .flat_map(|dir| self.try_step_ignore_slope(x, y, dir))
-                .filter(|next| !visited.contains(next))
+        results.into_iter().flatten().max()
+    }
+
+    fn traverse_ignore_slope_smarter(&mut self) -> usize {
+        let mut edges = HashMap::<_, Vec<_>>::new();
+        let mut stack = vec![(self.start, self.start, self.start, 0)];
+        let mut add_edge = |t1: (usize, usize), t2: (usize, usize), len: usize| {
+            edges.entry(t1).or_default().push((t2, len));
+            edges.entry(t2).or_default().push((t1, len));
+        };
+
+        while let Some((curr_tile, prev_tile, prev_node, len)) = stack.pop() {
+            let (x, y) = curr_tile;
+
+            match self.get(x, y) {
+                Tile::N => {
+                    add_edge(curr_tile, prev_node, len);
+                    continue;
+                }
+                _ if curr_tile == self.exit => {
+                    add_edge(curr_tile, prev_node, len);
+                    continue;
+                }
+                Tile::X => continue,
+                _ => {}
+            }
+
+            let adjacent = [Dir::U, Dir::L, Dir::D, Dir::R]
+                .iter()
+                .flat_map(|&dir| self.try_step_ignore_slope(x, y, dir))
+                .filter(|&tile| tile != prev_tile)
                 .collect_vec();
 
-            if to_check.is_empty() {
-                unwind(node, &mut visited);
-            } else {
-                visited.insert((x, y));
-                node.borrow_mut().children += to_check.len();
-                stack.extend(
-                    to_check
-                        .into_iter()
-                        .map(|next| Node::attach(next, &node))
-                        .map(|next| (next, len + 1)),
-                )
+            match adjacent.len() {
+                0 => continue,
+                // start or regular tile
+                1 => {
+                    self.set(x, y, Tile::X);
+                    adjacent.into_iter().for_each(|tile| {
+                        stack.push((tile, curr_tile, prev_node, len + 1));
+                    });
+                }
+                // another node
+                _ => {
+                    self.set(x, y, Tile::N);
+                    add_edge(curr_tile, prev_node, len);
+                    adjacent.into_iter().for_each(|tile| {
+                        stack.push((tile, curr_tile, curr_tile, 1));
+                    });
+                }
             }
         }
 
-        res
+        Self::traverse_nodes(self.start, &edges, &mut HashSet::new(), self.exit).unwrap()
     }
 
     fn try_step(&self, x: usize, y: usize, dir: Dir) -> Option<(usize, usize)> {
@@ -215,13 +222,13 @@ impl Labyrinth {
             Dir::R if x + 1 < self.w => Some((x + 1, y)),
             _ => None,
         }
-        .filter(|&(x, y)| self.get(x, y).is_walkable())
+        .filter(|&(x, y)| !matches!(self.get(x, y), Tile::W))
     }
 
     fn longest_path(&mut self, ignore_slope: bool) -> usize {
         let (x, y) = self.start;
         if ignore_slope {
-            self.traverse_ignore_slope()
+            self.traverse_ignore_slope_smarter()
         } else {
             self.traverse(x, y, 0).unwrap()
         }
