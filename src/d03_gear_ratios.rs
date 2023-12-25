@@ -126,7 +126,7 @@ pub fn solution() -> Day<u64, u64> {
             run: sum_part_numbers,
         },
         part_2: Task {
-            examples: vec![ "./inputs/day_03/example_01.txt"],
+            examples: vec!["./inputs/day_03/example_01.txt"],
             task: "./inputs/day_03/task.txt",
             run: gear_ratio,
         },
