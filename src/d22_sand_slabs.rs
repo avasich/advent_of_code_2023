@@ -66,8 +66,9 @@ impl Brick {
     }
 }
 
-fn support_matrix(mut bricks: Vec<Brick>) -> Vec<HashSet<usize>> {
+fn support_matrix(mut bricks: Vec<Brick>) -> (Vec<HashSet<usize>>, Vec<HashSet<usize>>) {
     let mut supports = vec![HashSet::new(); bricks.len()];
+    let mut supporters = vec![HashSet::new(); bricks.len()];
 
     for j in 0..bricks.len() {
         let supporter = (0..j)
@@ -84,13 +85,14 @@ fn support_matrix(mut bricks: Vec<Brick>) -> Vec<HashSet<usize>> {
                     .filter(|(_, brick)| brick.b.z == height && brick.intersects_xy(&bricks[j]))
                     .for_each(|(k, _)| {
                         let _ = supports[k].insert(j);
+                        let _ = supporters[j].insert(k);
                     });
                 bricks[j].set_height(height + 1);
             }
         }
     }
 
-    supports
+    (supports, supporters)
 }
 
 fn parse_file(filename: &str) -> Vec<Brick> {
@@ -103,7 +105,7 @@ fn parse_file(filename: &str) -> Vec<Brick> {
 fn part_1(filename: &str) -> u32 {
     let bricks = parse_file(filename);
 
-    let supports = support_matrix(bricks);
+    let (supports, _) = support_matrix(bricks);
 
     supports
         .iter()
@@ -118,18 +120,16 @@ fn part_1(filename: &str) -> u32 {
 
 fn part_2(filename: &str) -> u32 {
     let bricks = parse_file(filename);
-    let supports = support_matrix(bricks);
+    let (supports, supporters) = support_matrix(bricks);
 
-    let mut heights = vec![0; supports.len()];
+    let mut bricks_on_top = vec![0; supports.len()];
 
     for i in 0..supports.len() {
         let mut affected = VecDeque::from_iter(supports[i].iter());
         let mut fallen = HashSet::from([i]);
 
         while let Some(j) = affected.pop_front() {
-            let has_more_supports = (0..supports.len())
-                .filter(|k| !fallen.contains(k))
-                .any(|k| supports[k].contains(j));
+            let has_more_supports = supporters[*j].difference(&fallen).count() > 0;
 
             if has_more_supports {
                 continue;
@@ -139,10 +139,10 @@ fn part_2(filename: &str) -> u32 {
             affected.extend(supports[*j].iter());
         }
 
-        heights[i] = fallen.len() - 1;
+        bricks_on_top[i] = fallen.len() - 1;
     }
 
-    heights.iter().sum::<usize>() as u32
+    bricks_on_top.iter().sum::<usize>() as u32
 }
 
 pub fn solution() -> Day<u32, u32> {
